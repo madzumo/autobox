@@ -92,6 +92,7 @@ type MenuList struct {
 	textInput           textinput.Model
 	inputPrompt         string
 	textInputError      bool
+	jobOutcome          string
 	manifestProvider    string
 	manifestBoxes       int
 	manifestLinodeAPI   string
