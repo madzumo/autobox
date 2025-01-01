@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -18,16 +21,16 @@ import (
 const listHeight = 14
 
 var (
-	titleStyle          = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("111"))
-	itemStyle           = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle   = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
-	paginationStyle     = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
-	helpStyle           = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	menuMainColor       = "205"
-	menuSettingsColor   = "111"
-	menuSMTPcolor       = "184"
-	textPromptColor     = "141" //"100" //nice: 141
-	textInputColor      = "193" //"40" //nice: 193
+	titleStyle        = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("111"))
+	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
+	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
+	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
+	menuMainColor     = "205"
+	menuSettingsColor = "111"
+	// menuSMTPcolor       = "184"
+	textPromptColor = "141" //"100" //nice: 141
+	// textInputColor  = "193" //"40" //nice: 193
 	textErrorColorBack  = "1"
 	textErrorColorFront = "15"
 	textResultJob       = "141" //PINK"205"
@@ -37,26 +40,17 @@ var (
 	menuTOP = []string{
 		"Toggle Provider",
 		"Change Number of Boxes to deploy",
-		"Enter Linode API Token",
+		"Enter Digital Ocean API Token",
 		"Enter AWS Key",
 		"Enter AWS Secret",
-		"Run Deployment",
+		"RUN Box Deployments",
+		"DELETE all Boxes",
 		"Save Settings",
 	}
-	// menuSettings = [][]string{ //menu Text + prompt text
-	// 	{"Set Iperf Server IP", "Enter Iperf Server IP:"},
-	// 	{"Set Iperf Port number", "Enter Iperf Port Number:"},
-	// 	{"Configure Email Settings", ""},
-	// 	{"Toggle CloudFlare Test", ""},
-	// 	{"Toggle M-Labs Test", ""},
-	// 	{"Toggle Speedtest.net", ""},
-	// 	{"Toggle Show Browser on Speed Tests", ""},
-	// 	{"Set Repeat Test Interval", "Enter Repeat Interval in Seconds:"},
-	// 	{"Set MSS Size", "Enter Maximum Segment Size (MSS) for Iperf Test:"},
-	// 	{"Set Iperf Retry Timeout", "Enter Max seconds Iperf will Retry before cancelling:"},
-	// }
+	doAPI = "xx"
 )
 
+// App States
 type MenuState int
 
 const (
@@ -67,13 +61,9 @@ const (
 	StateTextInput
 )
 
+// Messsage returend when the background job finishes
 type backgroundJobMsg struct {
 	result string
-}
-
-type continueJobs struct {
-	jobResult  string
-	iperfError bool
 }
 
 type JobList int
@@ -112,6 +102,8 @@ func (m MenuList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateSpinner(msg)
 	case StateTextInput:
 		return m.updateTextInput(msg)
+	case StateResultDisplay:
+		return m.updateResultDisplay(msg)
 	default:
 		return m, nil
 	}
@@ -136,18 +128,28 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if ok {
 				m.choice = string(i)
 				switch m.choice {
-				case menuTOP[0], menuTOP[1], menuTOP[2], menuTOP[4]:
+				case menuTOP[0]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.startBackgroundJob())
-				case menuTOP[3]:
+					return m, tea.Batch(m.spinner.Tick, m.backgroundPEPA())
+				case menuTOP[5]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobCreateBox())
+				case menuTOP[6]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
+				default: //all other options go to startBackgroundJob
 					m.prevState = m.state
 					m.list.Title = "Main Menu->Settings"
 					m.header = "Pepa Header"
 					selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color(menuSettingsColor))
 					m.list.Styles.Title = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color(menuSettingsColor))
-					m.state = StateSettingsMenu
+					m.state = StateMainMenu
 					m.updateListItems()
 					return m, nil
 				}
@@ -209,14 +211,52 @@ func (m *MenuList) updateSpinner(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 	case backgroundJobMsg:
-		return m, tea.Batch(m.spinner.Tick, m.startBackgroundJob())
-	case continueJobs:
-		return m, tea.Batch(m.spinner.Tick, m.startBackgroundJob())
+		m.backgroundJobResult = m.jobOutcome + "\n\n" + msg.result + "\n"
+		m.state = StateResultDisplay
+		return m, nil
+	// case continueJobs:
+	// 	return m, tea.Batch(m.spinner.Tick, m.startBackgroundJob())
 	default:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
 	}
+}
+
+func (m *MenuList) updateResultDisplay(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "esc":
+			if m.textInputError {
+				m.state = m.prevState
+			} else {
+				m.state = m.prevMenuState
+			}
+			m.updateListItems()
+			return m, nil
+		case "ctrl+c":
+			return m, tea.Quit
+		}
+	}
+	return m, nil
+}
+
+func (m MenuList) viewResultDisplay() string {
+	outro := "Press 'esc' to return."
+	outroRender := lipgloss.NewStyle().Foreground(lipgloss.Color("231")).Bold(true).Render(outro)
+	lipgloss.NewStyle().Foreground(lipgloss.Color("231")).Bold(true)
+	if m.textInputError {
+		m.backgroundJobResult = lipgloss.NewStyle().Foreground(lipgloss.Color(textErrorColorFront)).Background(lipgloss.Color(textErrorColorBack)).Bold(true).Render(m.backgroundJobResult)
+	} else {
+		m.backgroundJobResult = lipgloss.NewStyle().Foreground(lipgloss.Color(textResultJob)).Render(m.backgroundJobResult)
+	}
+	return fmt.Sprintf("\n\n%s\n\n%s", m.backgroundJobResult, outroRender)
+
+	// //repeat interval
+	// if m.configSettings.Interval > 0 {
+
+	// }
 }
 
 func (m MenuList) View() string {
@@ -227,6 +267,8 @@ func (m MenuList) View() string {
 		return m.viewSpinner()
 	case StateTextInput:
 		return m.viewTextInput()
+	case StateResultDisplay:
+		return m.viewResultDisplay()
 	default:
 		return "Unknown state"
 	}
@@ -265,11 +307,118 @@ func (m *MenuList) updateListItems() {
 	m.list.ResetSelected()
 }
 
-func (m *MenuList) startBackgroundJob() tea.Cmd {
+func (m *MenuList) backgroundPEPA() tea.Cmd {
 	fmt.Println("started job")
 
+	// fileX, _ := CreateTightVNCFiles("45.55.153.222", "5901", "prime6996")
+
+	runVNCcommand()
+
 	return func() tea.Msg {
-		return backgroundJobMsg{result: "Job Complete!"}
+		return backgroundJobMsg{result: fmt.Sprintf("VNC file created - %s", "pepa")}
+	}
+
+}
+
+func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
+	fmt.Println("started job")
+
+	firewallID := createFirewall(doAPI)
+	saveFirewall(firewallID)
+
+	pepitaID := createBox(doAPI)
+	addDropletToFirewall(doAPI, firewallID, pepitaID)
+	saveIDs(strconv.Itoa(pepitaID))
+
+	return func() tea.Msg {
+		return backgroundJobMsg{result: fmt.Sprintf("Droplet created! ID:%d\n", pepitaID)}
+	}
+
+}
+
+func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
+	fmt.Println("started job")
+
+	deleteALLboxes()
+
+	return func() tea.Msg {
+		return backgroundJobMsg{result: "Droplets Deleted!"}
+	}
+
+}
+
+func saveFirewall(id string) error {
+	execpath, _ := os.Executable()
+	dir := filepath.Dir(execpath)
+	filepath := filepath.Join(dir, "firewall.txt")
+
+	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 06044)
+
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+
+	defer file.Close()
+
+	_, err = file.WriteString(id + "\n")
+	if err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+	return nil
+}
+
+func saveIDs(id string) error {
+	execpath, _ := os.Executable()
+	dir := filepath.Dir(execpath)
+	filepath := filepath.Join(dir, "ids.txt")
+
+	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 06044)
+
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+
+	defer file.Close()
+
+	_, err = file.WriteString(id + "\n")
+	if err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
+	return nil
+}
+
+func getIDs() ([]string, error) {
+	execpath, _ := os.Executable()
+	dir := filepath.Dir(execpath)
+	filepath := filepath.Join(dir, "ids.txt")
+
+	file, err := os.Open(filepath)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+
+	defer file.Close()
+
+	var ids []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		ids = append(ids, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	return ids, nil
+}
+
+func deleteALLboxes() {
+	boxes, _ := getIDs()
+
+	for _, str := range boxes {
+		numID, _ := strconv.Atoi(str)
+		deleteBox(doAPI, numID)
 	}
 
 }

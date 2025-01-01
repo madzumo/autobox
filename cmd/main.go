@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -16,18 +14,18 @@ var (
 | / ___ \  | |_| | | |_  | (_) |   | |_) | | |_| |  /  \ |
 |/_/   \_\  \__,_|  \__|  \___/    |____/   \___/  /_/\_\|
 +========================================================+
-
+												by madzumo
 `
 	lipHeaderStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("46"))
 	lipManifestStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("56"))
 )
 
 func main() {
-	fmt.Println("hello world")
-	ShowMenuList(lipHeaderStyle.Render(headerMenu) + "\n" + lipManifestStyle.Render(getManifest()))
+	// fmt.Println("hello world")
+	ShowMenuList(lipHeaderStyle.Render(headerMenu) + lipManifestStyle.Render(getManifest()))
 }
 
 func getManifest() string {
 
-	return "ok"
+	return "\nManifest:"
 }
