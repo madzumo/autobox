@@ -1,4 +1,5 @@
 #!/bin/bash
+URL=${1:-"https://yahoo.com"}
 echo "Hello, DigitalOcean!" > /root/test.txt
 sudo apt-get update
 sudo apt-get install xfce4 xfce4-goodies tightvncserver -y
