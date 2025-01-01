@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +17,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/digitalocean/godo"
 )
 
 const listHeight = 14
@@ -46,6 +49,7 @@ var (
 		"Enter AWS Secret",
 		"Change Number of Boxes to deploy",
 		"DEPLOY Boxes",
+		"CREATE PS1 Config files",
 		"REMOVE all Boxes",
 		"Save Settings",
 	}
@@ -170,8 +174,13 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobCreatePS1files())
 				case menuTOP[7]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
+				case menuTOP[8]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -204,7 +213,7 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			inputValue := m.textInput.Value() // User pressed enter, save the input
 
 			switch m.inputPrompt {
-			case menuTOP[2]:
+			case menuTOP[1]:
 				m.app.settings.DoAPI = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved API\n%s", inputValue)
 			case menuTOP[4]:
@@ -368,36 +377,46 @@ func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 	fmt.Println("started job")
 	resultX := fmt.Sprintf("%d - Droplets created!", m.app.settings.NumberBoxes)
-	dropletsIP := []string{}
 
 	err1 := m.app.createFirewall(m.app.settings.DoAPI)
 	if err1 != nil {
-		fmt.Printf("Error creating firewall\n%s", err1)
-	} else {
-		for i := 1; i <= m.app.settings.NumberBoxes; i++ {
-			dropID, dropIP := m.app.createBox(m.app.settings.DoAPI)
-			if dropID > 0 {
-				err2 := m.app.saveIDsLocal(strconv.Itoa(dropID))
-				if err2 != nil {
-					fmt.Printf("Error saving ID to file\n%s", err2)
-				}
-			}
-			if dropIP != "" {
-				dropletsIP = append(dropletsIP, dropIP)
-			}
-		}
-		//wait 30 seconds for boxes to get created
-		fmt.Println("Wait for boxes to load.....")
-		time.Sleep(30 * time.Second)
-		for _, ip := range dropletsIP {
-			m.app.postSCRIPT(ip)
-		}
+		resultX = fmt.Sprintf("Error creating firewall:\n%s\n%s", err1, resultX)
+	}
+
+	for i := 1; i <= m.app.settings.NumberBoxes; i++ {
+		m.app.createBox(m.app.settings.DoAPI)
 	}
 
 	return func() tea.Msg {
 		return backgroundJobMsg{result: resultX}
 	}
 
+}
+
+func (m *MenuList) backgroundJobCreatePS1files() tea.Cmd {
+	client := godo.NewFromToken(m.app.settings.DoAPI)
+	ctx := context.TODO()
+	tag := "AUTO-BOX"
+
+	// List droplets by tag
+	droplets, _, err := client.Droplets.ListByTag(ctx, tag, &godo.ListOptions{})
+	if err != nil {
+		log.Fatalf("Error retrieving droplets with tag %s: %v", tag, err)
+	}
+
+	// Retrieve public IP addresses of each droplet
+	for _, droplet := range droplets {
+		for _, network := range droplet.Networks.V4 {
+			if network.Type == "public" {
+				//fmt.Printf("Droplet: %s, Public IP: %s\n", droplet.Name, network.IPAddress)
+				m.app.postSCRIPT(network.IPAddress)
+			}
+		}
+	}
+
+	return func() tea.Msg {
+		return backgroundJobMsg{result: "Created PS1 files under Boxes folder"}
+	}
 }
 
 func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {

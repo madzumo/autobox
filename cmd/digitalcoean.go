@@ -7,7 +7,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -21,7 +20,7 @@ type Droplets struct {
 	image  string
 }
 
-func (app *applicationMain) createBox(token string) (dropletID int, dropletIP string) {
+func (app *applicationMain) createBox(token string) {
 	client := godo.NewFromToken(token)
 	ctx := context.TODO()
 
@@ -30,6 +29,7 @@ func (app *applicationMain) createBox(token string) (dropletID int, dropletIP st
 	size := "s-1vcpu-2gb" //.018/hour
 	// size := "s-1vcpu-1gb" // .009/hour
 	imageSlug := "ubuntu-24-10-x64"
+
 	// Retrieve all SSH keys on the account
 	sshKeys, _, err := client.Keys.List(ctx, &godo.ListOptions{})
 	if err != nil {
@@ -54,35 +54,57 @@ func (app *applicationMain) createBox(token string) (dropletID int, dropletIP st
 		SSHKeys: dropletSSHKeys,
 		Backups: false,
 		Tags:    []string{"AUTO-BOX"},
-		// UserData: startupScript,
 	}
 
 	droplet, _, err := client.Droplets.Create(ctx, createRequest)
 	if err != nil {
 		fmt.Printf("Error creating droplet: %v", err)
-		return 0, ""
 	}
-
 	fmt.Printf("Droplet created! ID:%d, Name: %s\n", droplet.ID, droplet.Name)
-	dropIP, err := droplet.PublicIPv4()
-	if err != nil {
-		fmt.Print("Unable to get IP from droplet")
-		return droplet.ID, ""
-	} else {
-		return droplet.ID, dropIP
-	}
+
+	// Poll for the public IP
+	// for i := 0; i < 10; i++ { // Try up to 10 times
+	// 	droplet, _, err = client.Droplets.Get(ctx, droplet.ID)
+	// 	if err != nil {
+	// 		fmt.Printf("Error retrieving droplet info: %v\n", err)
+	// 		return ""
+	// 	}
+
+	// 	dropIP, _ := droplet.PublicIPv4()
+	// 	if dropIP != "" {
+	// 		fmt.Printf("Droplet IP retrieved: %s\n", dropIP)
+	// 		return dropIP
+	// 	}
+
+	// 	fmt.Println("Waiting for droplet to get a public IP...")
+	// 	time.Sleep(10 * time.Second) // Wait 10 seconds before trying again
+	// }
+
+	// fmt.Println("Droplet public IP not available after polling.")
+	// return ""
 }
 
 func (app *applicationMain) deleteBox(token string) {
 	//boxes is []int
-	boxes, _ := app.getIDsLocal()
+	// boxes, _ := app.getIDsLocal()
+	// client := godo.NewFromToken(token)
+	// ctx := context.TODO()
+	// for _, numID := range boxes {
+	// 	_, err := client.Droplets.Delete(ctx, numID)
+	// 	if err != nil {
+	// 		fmt.Printf("Error deleting droplet: %v", err)
+	// 	}
+	// }
 	client := godo.NewFromToken(token)
 	ctx := context.TODO()
-	for _, numID := range boxes {
-		_, err := client.Droplets.Delete(ctx, numID)
-		if err != nil {
-			fmt.Printf("Error deleting droplet: %v", err)
-		}
+
+	tag := "AUTO-BOX"
+
+	_, err := client.Droplets.DeleteByTag(ctx, tag)
+	if err != nil {
+		fmt.Printf("Error deleting droplets with tag %q: %v\n", tag, err)
+	} else {
+		fmt.Printf("Successfully deleted all droplets with tag %q\n", tag)
 	}
 }
 
@@ -296,70 +318,30 @@ func (app *applicationMain) getIDsLocal() ([]int, error) {
 }
 
 func (app *applicationMain) postSCRIPT(dropletIP string) {
-	// Command to execute
-	sshCommand := fmt.Sprintf("ssh root@%s", dropletIP)
+	// Replace the IP with the provided dropletIP
+	commands := fmt.Sprintf(`
+ssh -o StrictHostKeyChecking=no root@%s "export URL='https://twitch.tv/1_puppypaw' && curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash"
+`, dropletIP)
 
-	// Open a PowerShell instance
-	cmd := exec.Command("powershell", "-NoExit", "-Command", sshCommand)
+	// File name for the PowerShell script
+	filename := fmt.Sprintf("b%s.ps1", dropletIP)
 
-	// Create pipes for standard input, output, and error
-	stdin, err := cmd.StdinPipe()
+	// Ensure the directory exists
+	err2 := os.MkdirAll("boxes", 0755)
+	if err2 != nil {
+		fmt.Println("Error creating directory:", err2)
+		return
+	}
+
+	// Full path for the file
+	fullPath := fmt.Sprintf("%s/%s", "boxes", filename)
+
+	// Create or overwrite the .ps1 file in the current directory
+	err := os.WriteFile(fullPath, []byte(commands), 0644)
 	if err != nil {
-		fmt.Println("Error creating stdin pipe:", err)
-		return
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Println("Error creating stdout pipe:", err)
+		fmt.Println("Error writing to file:", err)
 		return
 	}
 
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		fmt.Println("Error creating stderr pipe:", err)
-		return
-	}
-
-	// Start the command
-	if err := cmd.Start(); err != nil {
-		fmt.Println("Error starting command:", err)
-		return
-	}
-
-	// Write "yes" to accept the fingerprint prompt
-	go func() {
-		stdin.Write([]byte("yes\n"))
-		stdin.Close()
-	}()
-
-	// Read and print stdout and stderr
-	go func() {
-		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
-			fmt.Println(scanner.Text())
-		}
-	}()
-
-	go func() {
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			fmt.Fprintln(os.Stderr, scanner.Text())
-		}
-	}()
-
-	// Wait for the ssh command to complete
-	if err := cmd.Wait(); err != nil {
-		fmt.Println("Error waiting for command to finish:", err)
-		return
-	}
-
-	// Run the "ls -a" command
-	lsCmd := exec.Command("powershell", "-NoExit", "-Command", "ls -a")
-	lsOutput, err := lsCmd.CombinedOutput()
-	if err != nil {
-		fmt.Println("Error running ls -a:", err)
-		return
-	}
-
-	fmt.Println(string(lsOutput))
+	fmt.Printf("PowerShell script saved as %s.\n", filename)
 }

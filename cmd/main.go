@@ -43,7 +43,7 @@ func main() {
 	app := &applicationMain{
 		droplet:  &Droplets{},
 		settings: settingsX,
-		manifest: fmt.Sprintf("\nProvider: %s\nD.O.API: %.10s...\nBoxes: %d\n", settingsX.Provider, settingsX.DoAPI, settingsX.NumberBoxes),
+		manifest: fmt.Sprintf("\nProvider: %s\nD.O.API: %.15s...\nBoxes: %d\n", settingsX.Provider, settingsX.DoAPI, settingsX.NumberBoxes),
 	}
 
 	ShowMenu(app)
