@@ -33,6 +33,7 @@ type settingsConfig struct {
 	NumberBoxes int    `json:"boxes"`
 	AwsKey      string `json:"awsKey"`
 	AwsSecret   string `json:"awsSecret"`
+	Provider    string `json:"provider"`
 }
 
 func main() {
@@ -42,7 +43,7 @@ func main() {
 	app := &applicationMain{
 		droplet:  &Droplets{},
 		settings: settingsX,
-		manifest: fmt.Sprintf("\nManifest:\nDigital Ocean API:%s\nBoxes:%d\n", settingsX.DoAPI, settingsX.NumberBoxes),
+		manifest: fmt.Sprintf("\nProvider: %s\nD.O.API: %.10s...\nBoxes: %d\n", settingsX.Provider, settingsX.DoAPI, settingsX.NumberBoxes),
 	}
 
 	ShowMenu(app)
@@ -55,6 +56,7 @@ func getSettings() (*settingsConfig, error) {
 		NumberBoxes: 1,
 		AwsKey:      "awsKEY",
 		AwsSecret:   "awsSECRET",
+		Provider:    "Digital Ocean",
 	}
 
 	data, err := os.ReadFile(settingsFileName)

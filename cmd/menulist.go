@@ -41,12 +41,12 @@ var (
 
 	menuTOP = []string{
 		"Toggle Provider",
-		"Change Number of Boxes to deploy",
 		"Enter Digital Ocean API Token",
 		"Enter AWS Key",
 		"Enter AWS Secret",
-		"RUN Box Deployments",
-		"DELETE all Boxes",
+		"Change Number of Boxes to deploy",
+		"DEPLOY Boxes",
+		"REMOVE all Boxes",
 		"Save Settings",
 	}
 )
@@ -135,13 +135,26 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundPEPA())
-				case menuTOP[2]:
+				case menuTOP[1]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[2]
+					m.inputPrompt = menuTOP[1]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., dop_v1_a0xx"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 200
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
+				case menuTOP[4]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[4]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., 5"
 					m.textInput.Focus()
 					m.textInput.CharLimit = 200
 					m.textInput.Width = 200
@@ -194,6 +207,14 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case menuTOP[2]:
 				m.app.settings.DoAPI = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved API\n%s", inputValue)
+			case menuTOP[4]:
+				boxes, err := strconv.Atoi(inputValue)
+				if err != nil {
+					m.backgroundJobResult = "Data inputed is not a valid Number"
+				} else {
+					m.app.settings.NumberBoxes = boxes
+					m.backgroundJobResult = fmt.Sprintf("Number of Boxes = \n%s", inputValue)
+				}
 			}
 			m.prevState = m.state
 			m.state = StateResultDisplay
@@ -346,22 +367,35 @@ func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 
 func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 	fmt.Println("started job")
+	resultX := fmt.Sprintf("%d - Droplets created!", m.app.settings.NumberBoxes)
+	dropletsIP := []string{}
 
 	err1 := m.app.createFirewall(m.app.settings.DoAPI)
 	if err1 != nil {
 		fmt.Printf("Error creating firewall\n%s", err1)
-	}
-
-	pepitaID := m.app.createBox(m.app.settings.DoAPI)
-	if pepitaID > 0 {
-		err2 := m.app.saveIDsLocal(strconv.Itoa(pepitaID))
-		if err2 != nil {
-			fmt.Printf("Error saving ID to file\n%s", err2)
+	} else {
+		for i := 1; i <= m.app.settings.NumberBoxes; i++ {
+			dropID, dropIP := m.app.createBox(m.app.settings.DoAPI)
+			if dropID > 0 {
+				err2 := m.app.saveIDsLocal(strconv.Itoa(dropID))
+				if err2 != nil {
+					fmt.Printf("Error saving ID to file\n%s", err2)
+				}
+			}
+			if dropIP != "" {
+				dropletsIP = append(dropletsIP, dropIP)
+			}
+		}
+		//wait 30 seconds for boxes to get created
+		fmt.Println("Wait for boxes to load.....")
+		time.Sleep(30 * time.Second)
+		for _, ip := range dropletsIP {
+			m.app.postSCRIPT(ip)
 		}
 	}
 
 	return func() tea.Msg {
-		return backgroundJobMsg{result: fmt.Sprintf("Droplet created! ID:%d\n", pepitaID)}
+		return backgroundJobMsg{result: resultX}
 	}
 
 }
@@ -369,8 +403,11 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 	fmt.Println("started job")
 
-	m.app.deleteALLboxes(m.app.settings.DoAPI)
-	m.app.deleteFirewall(m.app.settings.DoAPI)
+	m.app.deleteBox(m.app.settings.DoAPI)
+	err := m.app.deleteFirewall(m.app.settings.DoAPI)
+	if err != nil {
+		fmt.Printf("Error deleting firewall\n%s", err)
+	}
 	return func() tea.Msg {
 		return backgroundJobMsg{result: "Droplets Deleted!"}
 	}

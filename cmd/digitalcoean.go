@@ -7,18 +7,12 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/digitalocean/godo"
-)
-
-var (
-	startupScript = `
-	export URL="https://twitch.tv/vortix93"
-	curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash
-	`
 )
 
 type Droplets struct {
@@ -27,7 +21,7 @@ type Droplets struct {
 	image  string
 }
 
-func (app *applicationMain) createBox(token string) int {
+func (app *applicationMain) createBox(token string) (dropletID int, dropletIP string) {
 	client := godo.NewFromToken(token)
 	ctx := context.TODO()
 
@@ -39,7 +33,7 @@ func (app *applicationMain) createBox(token string) int {
 	// Retrieve all SSH keys on the account
 	sshKeys, _, err := client.Keys.List(ctx, &godo.ListOptions{})
 	if err != nil {
-		log.Fatalf("Error retrieving SSH keys: %v", err)
+		fmt.Printf("Error retrieving SSH keys: %v", err)
 	}
 
 	// Convert to the required type for DropletCreateRequest
@@ -57,32 +51,39 @@ func (app *applicationMain) createBox(token string) int {
 		Image: godo.DropletCreateImage{
 			Slug: imageSlug,
 		},
-		SSHKeys:  dropletSSHKeys,
-		Backups:  false,
-		Tags:     []string{"AUTO-BOX"},
-		UserData: startupScript,
+		SSHKeys: dropletSSHKeys,
+		Backups: false,
+		Tags:    []string{"AUTO-BOX"},
+		// UserData: startupScript,
 	}
 
 	droplet, _, err := client.Droplets.Create(ctx, createRequest)
 	if err != nil {
 		fmt.Printf("Error creating droplet: %v", err)
-		return 0
+		return 0, ""
 	}
 
 	fmt.Printf("Droplet created! ID:%d, Name: %s\n", droplet.ID, droplet.Name)
-	return droplet.ID
+	dropIP, err := droplet.PublicIPv4()
+	if err != nil {
+		fmt.Print("Unable to get IP from droplet")
+		return droplet.ID, ""
+	} else {
+		return droplet.ID, dropIP
+	}
 }
 
-func (app *applicationMain) deleteBox(token string, dropletID int) {
+func (app *applicationMain) deleteBox(token string) {
+	//boxes is []int
+	boxes, _ := app.getIDsLocal()
 	client := godo.NewFromToken(token)
 	ctx := context.TODO()
-
-	_, err := client.Droplets.Delete(ctx, dropletID)
-	if err != nil {
-		log.Fatalf("Error deleting droplet: %v", err)
+	for _, numID := range boxes {
+		_, err := client.Droplets.Delete(ctx, numID)
+		if err != nil {
+			fmt.Printf("Error deleting droplet: %v", err)
+		}
 	}
-
-	fmt.Printf("Droplet with ID %d deleted successfully!\n", dropletID)
 }
 
 func (app *applicationMain) createFirewall(token string) error {
@@ -294,11 +295,71 @@ func (app *applicationMain) getIDsLocal() ([]int, error) {
 	return ids, nil
 }
 
-func (app *applicationMain) deleteALLboxes(token string) {
-	boxes, _ := app.getIDsLocal()
+func (app *applicationMain) postSCRIPT(dropletIP string) {
+	// Command to execute
+	sshCommand := fmt.Sprintf("ssh root@%s", dropletIP)
 
-	for _, numID := range boxes {
-		app.deleteBox(token, numID)
+	// Open a PowerShell instance
+	cmd := exec.Command("powershell", "-NoExit", "-Command", sshCommand)
+
+	// Create pipes for standard input, output, and error
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		fmt.Println("Error creating stdin pipe:", err)
+		return
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Println("Error creating stdout pipe:", err)
+		return
 	}
 
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		fmt.Println("Error creating stderr pipe:", err)
+		return
+	}
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Error starting command:", err)
+		return
+	}
+
+	// Write "yes" to accept the fingerprint prompt
+	go func() {
+		stdin.Write([]byte("yes\n"))
+		stdin.Close()
+	}()
+
+	// Read and print stdout and stderr
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			fmt.Println(scanner.Text())
+		}
+	}()
+
+	go func() {
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			fmt.Fprintln(os.Stderr, scanner.Text())
+		}
+	}()
+
+	// Wait for the ssh command to complete
+	if err := cmd.Wait(); err != nil {
+		fmt.Println("Error waiting for command to finish:", err)
+		return
+	}
+
+	// Run the "ls -a" command
+	lsCmd := exec.Command("powershell", "-NoExit", "-Command", "ls -a")
+	lsOutput, err := lsCmd.CombinedOutput()
+	if err != nil {
+		fmt.Println("Error running ls -a:", err)
+		return
+	}
+
+	fmt.Println(string(lsOutput))
 }
