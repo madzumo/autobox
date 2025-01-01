@@ -1,13 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/key"
@@ -21,16 +20,19 @@ import (
 const listHeight = 14
 
 var (
+	lipHeaderStyle       = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("46"))
+	lipManifestStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
+	lipSelectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("205"))
+	lipTitleStyle        = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("205"))
+
 	titleStyle        = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("111"))
 	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
 	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
 	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	menuMainColor     = "205"
-	menuSettingsColor = "111"
 	// menuSMTPcolor       = "184"
-	textPromptColor = "141" //"100" //nice: 141
-	// textInputColor  = "193" //"40" //nice: 193
+	textPromptColor     = "141" //"100" //nice: 141
+	textInputColor      = "193" //"40" //nice: 193
 	textErrorColorBack  = "1"
 	textErrorColorFront = "15"
 	textResultJob       = "141" //PINK"205"
@@ -47,7 +49,6 @@ var (
 		"DELETE all Boxes",
 		"Save Settings",
 	}
-	doAPI = "xx"
 )
 
 // App States
@@ -88,6 +89,7 @@ type MenuList struct {
 	manifestLinodeAPI   string
 	manifestAWSkey      string
 	manifestAWSsecret   string
+	app                 *applicationMain
 }
 
 func (m MenuList) Init() tea.Cmd {
@@ -133,6 +135,19 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundPEPA())
+				case menuTOP[2]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[2]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., dop_v1_a0xx"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 200
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
 				case menuTOP[5]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
@@ -143,15 +158,11 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
-				default: //all other options go to startBackgroundJob
+				case menuTOP[7]:
 					m.prevState = m.state
-					m.list.Title = "Main Menu->Settings"
-					m.header = "Pepa Header"
-					selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color(menuSettingsColor))
-					m.list.Styles.Title = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color(menuSettingsColor))
-					m.state = StateMainMenu
-					m.updateListItems()
-					return m, nil
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundSaveSettings())
 				}
 			}
 			return m, nil
@@ -177,11 +188,12 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			m.inputPrompt = m.textInput.Value() // User pressed enter, save the input
+			inputValue := m.textInput.Value() // User pressed enter, save the input
 
 			switch m.inputPrompt {
-			case m.inputPrompt:
-				fmt.Println("yep")
+			case menuTOP[2]:
+				m.app.settings.DoAPI = inputValue
+				m.backgroundJobResult = fmt.Sprintf("Saved API\n%s", inputValue)
 			}
 			m.prevState = m.state
 			m.state = StateResultDisplay
@@ -320,15 +332,33 @@ func (m *MenuList) backgroundPEPA() tea.Cmd {
 
 }
 
+func (m *MenuList) backgroundSaveSettings() tea.Cmd {
+	m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("51"))
+	m.spinnerMsg = "Saving Settings"
+	// m.spinner.Tick()
+	time.Sleep(1 * time.Second)
+	saveSettings(m.app.settings)
+
+	return func() tea.Msg {
+		return backgroundJobMsg{result: "Settings Saved"}
+	}
+}
+
 func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 	fmt.Println("started job")
 
-	firewallID := createFirewall(doAPI)
-	saveFirewall(firewallID)
+	err1 := m.app.createFirewall(m.app.settings.DoAPI)
+	if err1 != nil {
+		fmt.Printf("Error creating firewall\n%s", err1)
+	}
 
-	pepitaID := createBox(doAPI)
-	addDropletToFirewall(doAPI, firewallID, pepitaID)
-	saveIDs(strconv.Itoa(pepitaID))
+	pepitaID := m.app.createBox(m.app.settings.DoAPI)
+	if pepitaID > 0 {
+		err2 := m.app.saveIDsLocal(strconv.Itoa(pepitaID))
+		if err2 != nil {
+			fmt.Printf("Error saving ID to file\n%s", err2)
+		}
+	}
 
 	return func() tea.Msg {
 		return backgroundJobMsg{result: fmt.Sprintf("Droplet created! ID:%d\n", pepitaID)}
@@ -339,93 +369,16 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 	fmt.Println("started job")
 
-	deleteALLboxes()
-
+	m.app.deleteALLboxes(m.app.settings.DoAPI)
+	m.app.deleteFirewall(m.app.settings.DoAPI)
 	return func() tea.Msg {
 		return backgroundJobMsg{result: "Droplets Deleted!"}
 	}
 
 }
 
-func saveFirewall(id string) error {
-	execpath, _ := os.Executable()
-	dir := filepath.Dir(execpath)
-	filepath := filepath.Join(dir, "firewall.txt")
-
-	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 06044)
-
-	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-
-	defer file.Close()
-
-	_, err = file.WriteString(id + "\n")
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-	return nil
-}
-
-func saveIDs(id string) error {
-	execpath, _ := os.Executable()
-	dir := filepath.Dir(execpath)
-	filepath := filepath.Join(dir, "ids.txt")
-
-	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 06044)
-
-	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-
-	defer file.Close()
-
-	_, err = file.WriteString(id + "\n")
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-	return nil
-}
-
-func getIDs() ([]string, error) {
-	execpath, _ := os.Executable()
-	dir := filepath.Dir(execpath)
-	filepath := filepath.Join(dir, "ids.txt")
-
-	file, err := os.Open(filepath)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-
-	defer file.Close()
-
-	var ids []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		ids = append(ids, scanner.Text())
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	return ids, nil
-}
-
-func deleteALLboxes() {
-	boxes, _ := getIDs()
-
-	for _, str := range boxes {
-		numID, _ := strconv.Atoi(str)
-		deleteBox(doAPI, numID)
-	}
-
-}
-
-func ShowMenuList(header string) {
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color(menuMainColor))
-	titleStyle = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color(menuMainColor))
+func ShowMenu(app *applicationMain) {
+	header := lipHeaderStyle.Render(headerMenu) + lipManifestStyle.Render(app.manifest)
 
 	const defaultWidth = 90
 
@@ -435,7 +388,7 @@ func ShowMenuList(header string) {
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowTitle(true)
-	l.Styles.Title = titleStyle
+	l.Styles.Title = lipTitleStyle
 	l.Styles.PaginationStyle = paginationStyle
 	l.Styles.HelpStyle = helpStyle
 	l.KeyMap.ShowFullHelp = key.NewBinding() // remove '?' help option
@@ -449,6 +402,7 @@ func ShowMenuList(header string) {
 		state:      StateMainMenu,
 		spinner:    s,
 		spinnerMsg: "Action Performing",
+		app:        app,
 	}
 
 	m.updateListItems()
@@ -458,6 +412,7 @@ func ShowMenuList(header string) {
 		key.WithHelp("esc", "quit"),
 	)
 
+	//show Menu
 	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
 	if err != nil {
 		fmt.Println("Error running program:", err)

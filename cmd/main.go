@@ -1,7 +1,9 @@
 package main
 
 import (
-	"github.com/charmbracelet/lipgloss"
+	"encoding/json"
+	"fmt"
+	"os"
 )
 
 var (
@@ -16,16 +18,59 @@ var (
 +========================================================+
 												by madzumo
 `
-	lipHeaderStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("46"))
-	lipManifestStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
+
+	settingsFileName = "settings.json"
 )
 
-func main() {
-	// fmt.Println("hello world")
-	ShowMenuList(lipHeaderStyle.Render(headerMenu) + lipManifestStyle.Render(getManifest()))
+type applicationMain struct {
+	droplet  *Droplets
+	settings *settingsConfig
+	manifest string
 }
 
-func getManifest() string {
+type settingsConfig struct {
+	DoAPI       string `json:"doAPI"`
+	NumberBoxes int    `json:"boxes"`
+	AwsKey      string `json:"awsKey"`
+	AwsSecret   string `json:"awsSecret"`
+}
 
-	return "\nManifest:"
+func main() {
+
+	settingsX, _ := getSettings()
+
+	app := &applicationMain{
+		droplet:  &Droplets{},
+		settings: settingsX,
+		manifest: fmt.Sprintf("\nManifest:\nDigital Ocean API:%s\nBoxes:%d\n", settingsX.DoAPI, settingsX.NumberBoxes),
+	}
+
+	ShowMenu(app)
+}
+
+func getSettings() (*settingsConfig, error) {
+
+	configTemp := settingsConfig{
+		DoAPI:       "APIkey",
+		NumberBoxes: 1,
+		AwsKey:      "awsKEY",
+		AwsSecret:   "awsSECRET",
+	}
+
+	data, err := os.ReadFile(settingsFileName)
+	if err != nil {
+		return &configTemp, err
+	}
+
+	err = json.Unmarshal(data, &configTemp)
+	return &configTemp, err
+}
+
+func saveSettings(config *settingsConfig) error {
+	//convert to struct -> JSON
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(settingsFileName, data, 0644)
 }
