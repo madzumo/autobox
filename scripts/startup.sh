@@ -1,5 +1,4 @@
 #!/bin/bash
-URL=${1:-"https://yahoo.com"}
 echo "Hello, DigitalOcean!" > /root/test.txt
 sudo apt-get update
 sudo apt-get install xfce4 xfce4-goodies tightvncserver -y
@@ -24,6 +23,6 @@ expect {
 }'
 sleep 2
 vncserver -kill :1
-echo -e '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &\nbrave-browser --no-sandbox --new-window --start-maximized \"$URL\"' > ~/.vnc/xstartup
+echo -e '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &\nbrave-browser --no-sandbox --new-window --start-maximized "$1"' > ~/.vnc/xstartup
 chmod +x ~/.vnc/xstartup
 vncserver

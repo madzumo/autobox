@@ -12,7 +12,7 @@ import (
 var (
 	startupScript = `
 #!/bin/bash
-curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash
+curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash -s "https:"
 `
 )
 
