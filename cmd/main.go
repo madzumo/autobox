@@ -17,7 +17,7 @@ var (
 												by madzumo
 `
 	lipHeaderStyle   = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("46"))
-	lipManifestStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("56"))
+	lipManifestStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
 )
 
 func main() {

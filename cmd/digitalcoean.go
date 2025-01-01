@@ -14,7 +14,6 @@ var (
 #!/bin/bash
 curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash
 `
-	// encodedScript = base64.StdEncoding.EncodeToString([]byte(startupScript))
 )
 
 func createBox(token string) int {
@@ -25,7 +24,7 @@ func createBox(token string) int {
 	region := "nyc3"
 	size := "s-1vcpu-2gb" //.018/hour
 	// size := "s-1vcpu-1gb" // .009/hour
-	imageSlug := "ubuntu-22-04-x64"
+	imageSlug := "ubuntu-24-10-x64"
 	// Retrieve all SSH keys on the account
 	sshKeys, _, err := client.Keys.List(ctx, &godo.ListOptions{})
 	if err != nil {

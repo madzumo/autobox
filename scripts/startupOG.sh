@@ -23,6 +23,6 @@ expect {
 }'
 sleep 2
 vncserver -kill :1
-echo -e '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &\nbrave-browser --no-sandbox --new-window --start-maximized \"$URL\"' > ~/.vnc/xstartup
+echo -e '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &\nbrave-browser --no-sandbox --new-window --start-maximized "https://"' > ~/.vnc/xstartup
 chmod +x ~/.vnc/xstartup
 vncserver
