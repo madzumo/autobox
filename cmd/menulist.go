@@ -47,7 +47,7 @@ var (
 		"DEPLOY Boxes",
 		"CREATE PS1 Scripts",
 		"RUN Post URL Action",
-		"VERIFY Boxes VNC",
+		"VERIFY Boxes (TightVNC)",
 		"DELETE All Boxes",
 		"Save Settings",
 	}

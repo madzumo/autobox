@@ -32,8 +32,9 @@ type settingsConfig struct {
 	NumberBoxes int    `json:"boxes"`
 	AwsKey      string `json:"awsKey"`
 	AwsSecret   string `json:"awsSecret"`
-	Provider    string `json:"provider"`
+	Provider    string `json:"provider"` //digital, aws or linode
 	URL         string `json:"url"`
+	LinodeAPI   string `json:"linodeAPI"`
 }
 
 func main() {
@@ -61,7 +62,8 @@ func getSettings() (settings *settingsConfig, err error) {
 		NumberBoxes: 1,
 		AwsKey:      "awsKEY",
 		AwsSecret:   "awsSECRET",
-		Provider:    "Digital Ocean",
+		Provider:    "digital",
+		LinodeAPI:   "APIkey",
 	}
 
 	data, err := os.ReadFile(settingsFileName)
