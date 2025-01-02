@@ -1,15 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/digitalocean/godo"
 )
@@ -226,84 +222,87 @@ func (app *applicationMain) createSSHkey(token string) int {
 // 	return nil
 // }
 
-func (app *applicationMain) saveIDsLocal(id string) error {
-	execpath, _ := os.Executable()
-	dir := filepath.Dir(execpath)
-	filepath := filepath.Join(dir, "ids.txt")
+// func (app *applicationMain) saveIDsLocal(id string) error {
+// 	execpath, _ := os.Executable()
+// 	dir := filepath.Dir(execpath)
+// 	filepath := filepath.Join(dir, "ids.txt")
 
-	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 06044)
+// 	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 06044)
 
-	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
-	}
+// 	if err != nil {
+// 		return fmt.Errorf("failed to open file: %w", err)
+// 	}
 
-	defer file.Close()
+// 	defer file.Close()
 
-	_, err = file.WriteString(id + "\n")
-	if err != nil {
-		return fmt.Errorf("failed to write to file: %w", err)
-	}
-	return nil
-}
+// 	_, err = file.WriteString(id + "\n")
+// 	if err != nil {
+// 		return fmt.Errorf("failed to write to file: %w", err)
+// 	}
+// 	return nil
+// }
 
-func (app *applicationMain) getIDsLocal() ([]int, error) {
-	execpath, _ := os.Executable()
-	dir := filepath.Dir(execpath)
-	path := filepath.Join(dir, "ids.txt")
+// func (app *applicationMain) getIDsLocal() ([]int, error) {
+// 	execpath, _ := os.Executable()
+// 	dir := filepath.Dir(execpath)
+// 	path := filepath.Join(dir, "ids.txt")
 
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
+// 	file, err := os.Open(path)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to open file: %w", err)
+// 	}
+// 	defer file.Close()
 
-	var ids []int
-	scanner := bufio.NewScanner(file)
+// 	var ids []int
+// 	scanner := bufio.NewScanner(file)
 
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			// Skip empty lines
-			continue
-		}
+// 	for scanner.Scan() {
+// 		line := strings.TrimSpace(scanner.Text())
+// 		if line == "" {
+// 			// Skip empty lines
+// 			continue
+// 		}
 
-		// Try to convert line to integer
-		val, err := strconv.Atoi(line)
-		if err != nil {
-			// If not an integer, ignore this line
-			continue
-		}
+// 		// Try to convert line to integer
+// 		val, err := strconv.Atoi(line)
+// 		if err != nil {
+// 			// If not an integer, ignore this line
+// 			continue
+// 		}
 
-		ids = append(ids, val)
-	}
+// 		ids = append(ids, val)
+// 	}
 
-	// Check for any scanning error
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
+// 	// Check for any scanning error
+// 	if err := scanner.Err(); err != nil {
+// 		return nil, fmt.Errorf("failed to read file: %w", err)
+// 	}
 
-	// If no valid integers were found, return nil
-	if len(ids) == 0 {
-		return nil, nil
-	}
+// 	// If no valid integers were found, return nil
+// 	if len(ids) == 0 {
+// 		return nil, nil
+// 	}
 
-	return ids, nil
-}
+// 	return ids, nil
+// }
 
-func (app *applicationMain) createPostSCRIPT(dropletIP string) error {
+func (app *applicationMain) createPostSCRIPT(dropletIP string, position int) error {
 	// Replace the IP with the provided dropletIP
 	commands := fmt.Sprintf(`
 ssh -o StrictHostKeyChecking=no root@%s "export URL='%s' && curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash"
 `, dropletIP, app.settings.URL)
 
 	// File name for the PowerShell script
-	filename := fmt.Sprintf("b%s.ps1", dropletIP)
+	filename := fmt.Sprintf("%d-%s.ps1", position, dropletIP)
 
 	// Ensure the directory exists
 	err2 := os.MkdirAll("boxes", 0755)
 	if err2 != nil {
 		return err2
 	}
+
+	//check if this IP has been saved as a script yet
+	// files, err := os.ReadDir("./boxes")
 
 	// Full path for the file
 	fullPath := fmt.Sprintf("%s/%s", "boxes", filename)

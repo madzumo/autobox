@@ -176,8 +176,8 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., 5"
 					m.textInput.Focus()
-					m.textInput.CharLimit = 200
-					m.textInput.Width = 200
+					m.textInput.CharLimit = 10
+					m.textInput.Width = 10
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
@@ -196,6 +196,18 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundJobRunPostURL())
+					// m.prevMenuState = m.state
+					// m.prevState = m.state
+					// m.state = StateTextInput
+					// m.inputPrompt = menuTOP[6]
+					// m.textInput = textinput.New()
+					// m.textInput.Placeholder = "e.g., Type All or box #"
+					// m.textInput.Focus()
+					// m.textInput.CharLimit = 10
+					// m.textInput.Width = 10
+					// m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					// m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					// return m, nil
 				case menuTOP[7]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
@@ -259,7 +271,13 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.app.updateHeader()
 					m.header = m.app.header
 				}
-			case menuTOP[4]:
+				// case menuTOP[6]:
+				// 	runBox := inputValue
+				// 	if runBox == "all"{
+				// 		return m, tea.Batch(m.spinner.Tick, m.backgroundJobRunPostURL())
+				// 	}else{
+
+				// 	}
 
 			}
 			m.prevState = m.state
@@ -440,8 +458,15 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 	if err != nil {
 		result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
 	} else {
-		for _, ip := range ips {
-			err := m.app.createPostSCRIPT(ip)
+		startCount, err := countNumberofFiles("./boxes")
+		if err != nil {
+			fmt.Printf("Error getting number of Files\n%s", err)
+			startCount = 0
+		} else {
+			fmt.Printf("Count of files: %d", startCount)
+		}
+		for id, ip := range ips {
+			err := m.app.createPostSCRIPT(ip, (startCount + (id + 1)))
 			if err != nil {
 				result = fmt.Sprintf("Error creating post script\n%s", err)
 			}

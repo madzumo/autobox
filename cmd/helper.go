@@ -72,3 +72,25 @@ func (app *applicationMain) runPS1files() error {
 	}
 	return nil
 }
+
+func countNumberofFiles(folderPath string) (int, error) {
+	// Check if the folder exists
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		return 0, nil
+	}
+
+	// Open the folder
+	dir, err := os.Open(folderPath)
+	if err != nil {
+		return 0, err
+	}
+	defer dir.Close()
+
+	// Read the folder's contents
+	files, err := dir.Readdir(0)
+	if err != nil {
+		return 0, err
+	}
+
+	return len(files), nil
+}
