@@ -1,10 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -17,7 +15,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/digitalocean/godo"
 )
 
 const listHeight = 14
@@ -44,13 +41,14 @@ var (
 
 	menuTOP = []string{
 		"Toggle Provider",
-		"Enter Digital Ocean API Token",
-		"Enter AWS Key",
-		"Enter AWS Secret",
-		"Change Number of Boxes to deploy",
+		"Enter API Token",
+		"Set URL",
+		"Change # of Boxes to deploy",
 		"DEPLOY Boxes",
-		"CREATE PS1 Config files",
-		"REMOVE all Boxes",
+		"CREATE PS1 Scripts",
+		"RUN Post URL Action",
+		"VERIFY Boxes VNC",
+		"DELETE All Boxes",
 		"Save Settings",
 	}
 )
@@ -152,11 +150,24 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[4]:
+				case menuTOP[2]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[4]
+					m.inputPrompt = menuTOP[2]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., https://www.whatever.com"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 200
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
+				case menuTOP[3]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[3]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., 5"
 					m.textInput.Focus()
@@ -165,22 +176,32 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[5]:
+				case menuTOP[4]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundJobCreateBox())
+				case menuTOP[5]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobPS1scripts())
 				case menuTOP[6]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundJobCreatePS1files())
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobRunPostURL())
 				case menuTOP[7]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobVerifyVNC())
 				case menuTOP[8]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
+				case menuTOP[9]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -215,14 +236,17 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.inputPrompt {
 			case menuTOP[1]:
 				m.app.settings.DoAPI = inputValue
-				m.backgroundJobResult = fmt.Sprintf("Saved API\n%s", inputValue)
-			case menuTOP[4]:
+				m.backgroundJobResult = fmt.Sprintf("Saved API: %s", inputValue)
+			case menuTOP[2]:
+				m.app.settings.URL = inputValue
+				m.backgroundJobResult = fmt.Sprintf("Saved URL: %s", inputValue)
+			case menuTOP[3]:
 				boxes, err := strconv.Atoi(inputValue)
 				if err != nil {
 					m.backgroundJobResult = "Data inputed is not a valid Number"
 				} else {
 					m.app.settings.NumberBoxes = boxes
-					m.backgroundJobResult = fmt.Sprintf("Number of Boxes = \n%s", inputValue)
+					m.backgroundJobResult = fmt.Sprintf("Number of Boxes = %s", inputValue)
 				}
 			}
 			m.prevState = m.state
@@ -354,7 +378,7 @@ func (m *MenuList) backgroundPEPA() tea.Cmd {
 
 	// fileX, _ := CreateTightVNCFiles("45.55.153.222", "5901", "prime6996")
 
-	runVNCcommand()
+	m.app.runVNCcommand()
 
 	return func() tea.Msg {
 		return backgroundJobMsg{result: fmt.Sprintf("VNC file created - %s", "pepa")}
@@ -385,6 +409,7 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 
 	for i := 1; i <= m.app.settings.NumberBoxes; i++ {
 		m.app.createBox(m.app.settings.DoAPI)
+		time.Sleep(1 * time.Second)
 	}
 
 	return func() tea.Msg {
@@ -393,29 +418,17 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 
 }
 
-func (m *MenuList) backgroundJobCreatePS1files() tea.Cmd {
-	client := godo.NewFromToken(m.app.settings.DoAPI)
-	ctx := context.TODO()
-	tag := "AUTO-BOX"
-
-	// List droplets by tag
-	droplets, _, err := client.Droplets.ListByTag(ctx, tag, &godo.ListOptions{})
-	if err != nil {
-		log.Fatalf("Error retrieving droplets with tag %s: %v", tag, err)
-	}
-
-	// Retrieve public IP addresses of each droplet
-	for _, droplet := range droplets {
-		for _, network := range droplet.Networks.V4 {
-			if network.Type == "public" {
-				//fmt.Printf("Droplet: %s, Public IP: %s\n", droplet.Name, network.IPAddress)
-				m.app.postSCRIPT(network.IPAddress)
-			}
-		}
-	}
-
+func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
+	m.app.createPS1files()
+	m.app.runPS1files()
 	return func() tea.Msg {
-		return backgroundJobMsg{result: "Created PS1 files under Boxes folder"}
+		return backgroundJobMsg{result: "Finished Post URL Execution"}
+	}
+}
+
+func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
+	return func() tea.Msg {
+		return backgroundJobMsg{result: "Created PS1 config scripts"}
 	}
 }
 
@@ -433,6 +446,12 @@ func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 
 }
 
+func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
+	fmt.Println("started job")
+	return func() tea.Msg {
+		return backgroundJobMsg{result: "Verified mofo!"}
+	}
+}
 func ShowMenu(app *applicationMain) {
 	header := lipHeaderStyle.Render(headerMenu) + lipManifestStyle.Render(app.manifest)
 
@@ -440,7 +459,7 @@ func ShowMenu(app *applicationMain) {
 
 	// Initialize the list with empty items; items will be set in updateListItems
 	l := list.New([]list.Item{}, itemDelegate{}, defaultWidth, listHeight)
-	l.Title = "Main Menu"
+	l.Title = ""
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowTitle(true)

@@ -14,21 +14,19 @@ import (
 	"github.com/digitalocean/godo"
 )
 
-type Droplets struct {
-	region string
-	size   string
-	image  string
-}
+var (
+	region = "nyc3"
+	size   = "s-1vcpu-2gb" //.018/hour
+	// size = "s-1vcpu-1gb" // .009/hour
+	imageSlug = "ubuntu-24-10-x64"
+	tags      = []string{"AUTO-BOX"}
+)
 
 func (app *applicationMain) createBox(token string) {
 	client := godo.NewFromToken(token)
 	ctx := context.TODO()
 
 	dropletName := fmt.Sprintf("autobox-%d", rand.Int())
-	region := "nyc3"
-	size := "s-1vcpu-2gb" //.018/hour
-	// size := "s-1vcpu-1gb" // .009/hour
-	imageSlug := "ubuntu-24-10-x64"
 
 	// Retrieve all SSH keys on the account
 	sshKeys, _, err := client.Keys.List(ctx, &godo.ListOptions{})
@@ -53,35 +51,14 @@ func (app *applicationMain) createBox(token string) {
 		},
 		SSHKeys: dropletSSHKeys,
 		Backups: false,
-		Tags:    []string{"AUTO-BOX"},
+		Tags:    tags,
 	}
 
-	droplet, _, err := client.Droplets.Create(ctx, createRequest)
-	if err != nil {
-		fmt.Printf("Error creating droplet: %v", err)
+	_, _, err2 := client.Droplets.Create(ctx, createRequest)
+	if err2 != nil {
+		fmt.Printf("Error creating droplet: %v", err2)
 	}
-	fmt.Printf("Droplet created! ID:%d, Name: %s\n", droplet.ID, droplet.Name)
-
-	// Poll for the public IP
-	// for i := 0; i < 10; i++ { // Try up to 10 times
-	// 	droplet, _, err = client.Droplets.Get(ctx, droplet.ID)
-	// 	if err != nil {
-	// 		fmt.Printf("Error retrieving droplet info: %v\n", err)
-	// 		return ""
-	// 	}
-
-	// 	dropIP, _ := droplet.PublicIPv4()
-	// 	if dropIP != "" {
-	// 		fmt.Printf("Droplet IP retrieved: %s\n", dropIP)
-	// 		return dropIP
-	// 	}
-
-	// 	fmt.Println("Waiting for droplet to get a public IP...")
-	// 	time.Sleep(10 * time.Second) // Wait 10 seconds before trying again
-	// }
-
-	// fmt.Println("Droplet public IP not available after polling.")
-	// return ""
+	fmt.Printf("Droplet created!\n")
 }
 
 func (app *applicationMain) deleteBox(token string) {
@@ -172,11 +149,11 @@ func (app *applicationMain) createFirewall(token string) error {
 	}
 
 	//2. create the firewall
-	firewall, _, err := client.Firewalls.Create(ctx, firewallRequest)
-	if err != nil {
-		return err
+	_, _, err2 := client.Firewalls.Create(ctx, firewallRequest)
+	if err2 != nil {
+		return err2
 	}
-	fmt.Printf("Firewall created: %v\n", firewall)
+	fmt.Printf("Firewall created\n")
 	return nil
 }
 
@@ -317,11 +294,11 @@ func (app *applicationMain) getIDsLocal() ([]int, error) {
 	return ids, nil
 }
 
-func (app *applicationMain) postSCRIPT(dropletIP string) {
+func (app *applicationMain) createPostSCRIPT(dropletIP string) {
 	// Replace the IP with the provided dropletIP
 	commands := fmt.Sprintf(`
-ssh -o StrictHostKeyChecking=no root@%s "export URL='https://twitch.tv/1_puppypaw' && curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash"
-`, dropletIP)
+ssh -o StrictHostKeyChecking=no root@%s "export URL='%s' && curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash"
+`, dropletIP, app.settings.URL)
 
 	// File name for the PowerShell script
 	filename := fmt.Sprintf("b%s.ps1", dropletIP)
@@ -344,4 +321,28 @@ ssh -o StrictHostKeyChecking=no root@%s "export URL='https://twitch.tv/1_puppypa
 	}
 
 	fmt.Printf("PowerShell script saved as %s.\n", filename)
+}
+
+func (app *applicationMain) createPS1files() {
+	client := godo.NewFromToken(app.settings.DoAPI)
+	ctx := context.TODO()
+	tag := "AUTO-BOX"
+
+	// List droplets by tag
+	droplets, _, err := client.Droplets.ListByTag(ctx, tag, &godo.ListOptions{})
+	if err != nil {
+		log.Fatalf("Error retrieving droplets with tag %s: %v", tag, err)
+	}
+
+	// Retrieve public IP addresses of each droplet
+	for _, droplet := range droplets {
+		for _, network := range droplet.Networks.V4 {
+			if network.Type == "public" {
+				//fmt.Printf("Droplet: %s, Public IP: %s\n", droplet.Name, network.IPAddress)
+				app.createPostSCRIPT(network.IPAddress)
+			}
+		}
+	}
+
+	fmt.Println("Created PS1 files under Boxes folder")
 }

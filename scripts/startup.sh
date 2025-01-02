@@ -22,9 +22,9 @@ expect {
         send "n\r"
     }
 }'
-echo "-------SLEEP------"
 sleep 2
 vncserver -kill :1
+echo "-------vnc shutdown------"
 echo -e '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &\nbrave-browser --no-sandbox --new-window --start-maximized "$URL"' > ~/.vnc/xstartup
 chmod +x ~/.vnc/xstartup
 vncserver

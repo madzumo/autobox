@@ -23,7 +23,6 @@ var (
 )
 
 type applicationMain struct {
-	droplet  *Droplets
 	settings *settingsConfig
 	manifest string
 }
@@ -34,6 +33,7 @@ type settingsConfig struct {
 	AwsKey      string `json:"awsKey"`
 	AwsSecret   string `json:"awsSecret"`
 	Provider    string `json:"provider"`
+	URL         string `json:"url"`
 }
 
 func main() {
@@ -41,9 +41,8 @@ func main() {
 	settingsX, _ := getSettings()
 
 	app := &applicationMain{
-		droplet:  &Droplets{},
 		settings: settingsX,
-		manifest: fmt.Sprintf("\nProvider: %s\nD.O.API: %.15s...\nBoxes: %d\n", settingsX.Provider, settingsX.DoAPI, settingsX.NumberBoxes),
+		manifest: fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", settingsX.Provider, settingsX.DoAPI, settingsX.NumberBoxes, settingsX.URL),
 	}
 
 	ShowMenu(app)
