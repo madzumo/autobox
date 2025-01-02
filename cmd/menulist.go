@@ -41,7 +41,7 @@ var (
 
 	menuTOP = []string{
 		"Toggle Provider",
-		"Enter API Token",
+		"Enter API Token or Keys",
 		"Set URL",
 		"Change # of Boxes to deploy",
 		"DEPLOY Boxes",
@@ -133,10 +133,15 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.choice = string(i)
 				switch m.choice {
 				case menuTOP[0]:
-					m.prevState = m.state
-					m.prevMenuState = m.state
-					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundPEPA())
+					err := m.app.runPS1files()
+					if err != nil {
+						fmt.Printf("Error executing ps1 scripts:\n%s", err)
+					}
+					time.Sleep(10 * time.Second)
+
+					m.app.updateHeader()
+					m.header = m.app.header
+					return m, nil
 				case menuTOP[1]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
@@ -237,9 +242,13 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case menuTOP[1]:
 				m.app.settings.DoAPI = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved API: %s", inputValue)
+				m.app.updateHeader()
+				m.header = m.app.header
 			case menuTOP[2]:
 				m.app.settings.URL = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved URL: %s", inputValue)
+				m.app.updateHeader()
+				m.header = m.app.header
 			case menuTOP[3]:
 				boxes, err := strconv.Atoi(inputValue)
 				if err != nil {
@@ -247,7 +256,11 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.app.settings.NumberBoxes = boxes
 					m.backgroundJobResult = fmt.Sprintf("Number of Boxes = %s", inputValue)
+					m.app.updateHeader()
+					m.header = m.app.header
 				}
+			case menuTOP[4]:
+
 			}
 			m.prevState = m.state
 			m.state = StateResultDisplay
@@ -373,19 +386,6 @@ func (m *MenuList) updateListItems() {
 	m.list.ResetSelected()
 }
 
-func (m *MenuList) backgroundPEPA() tea.Cmd {
-	fmt.Println("started job")
-
-	// fileX, _ := CreateTightVNCFiles("45.55.153.222", "5901", "prime6996")
-
-	m.app.runVNCcommand()
-
-	return func() tea.Msg {
-		return backgroundJobMsg{result: fmt.Sprintf("VNC file created - %s", "pepa")}
-	}
-
-}
-
 func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 	m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("51"))
 	m.spinnerMsg = "Saving Settings"
@@ -404,11 +404,14 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 
 	err1 := m.app.createFirewall(m.app.settings.DoAPI)
 	if err1 != nil {
-		resultX = fmt.Sprintf("Error creating firewall:\n%s\n%s", err1, resultX)
+		resultX = fmt.Sprintf("Error creating firewall:\n%s", err1)
 	}
 
 	for i := 1; i <= m.app.settings.NumberBoxes; i++ {
-		m.app.createBox(m.app.settings.DoAPI)
+		err := m.app.createBox(m.app.settings.DoAPI)
+		if err != nil {
+			resultX = fmt.Sprintf("error creating box:\n%s", err)
+		}
 		time.Sleep(1 * time.Second)
 	}
 
@@ -419,41 +422,81 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 }
 
 func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
-	m.app.createPS1files()
-	m.app.runPS1files()
+	result := "Finished Post URL Execution"
+	err := m.app.runPS1files()
+	if err != nil {
+		result = fmt.Sprintf("Error executing ps1 scripts:\n%s", err)
+	}
+	time.Sleep(10 * time.Second)
+
 	return func() tea.Msg {
-		return backgroundJobMsg{result: "Finished Post URL Execution"}
+		return backgroundJobMsg{result: result}
 	}
 }
 
 func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
+	result := "Created PS1 files under Boxes folder"
+	ips, err := m.app.compileIPaddresses()
+	if err != nil {
+		result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+	} else {
+		for _, ip := range ips {
+			err := m.app.createPostSCRIPT(ip)
+			if err != nil {
+				result = fmt.Sprintf("Error creating post script\n%s", err)
+			}
+		}
+	}
+
 	return func() tea.Msg {
-		return backgroundJobMsg{result: "Created PS1 config scripts"}
+		return backgroundJobMsg{result: result}
 	}
 }
 
 func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 	fmt.Println("started job")
+	resultX := "Droplets Deleted!"
 
-	m.app.deleteBox(m.app.settings.DoAPI)
-	err := m.app.deleteFirewall(m.app.settings.DoAPI)
+	err := m.app.deleteBox(m.app.settings.DoAPI)
 	if err != nil {
-		fmt.Printf("Error deleting firewall\n%s", err)
+		resultX = fmt.Sprintf("Error deleting droplets\n%s", err)
+	}
+
+	err = m.app.deleteFirewall(m.app.settings.DoAPI)
+	if err != nil {
+		resultX = fmt.Sprintf("Error deleting firewall\n%s", err)
+	}
+
+	err = os.RemoveAll("./boxes")
+	if err != nil {
+		resultX = fmt.Sprintf("Failed to delete boxes folder\n%s", err)
 	}
 	return func() tea.Msg {
-		return backgroundJobMsg{result: "Droplets Deleted!"}
+		return backgroundJobMsg{result: resultX}
 	}
-
 }
 
 func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
 	fmt.Println("started job")
+	result := "Verified mofo!"
+
+	ips, err := m.app.compileIPaddresses()
+	if err != nil {
+		result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+	} else {
+		for _, ip := range ips {
+			err := m.app.runVNC(ip)
+			if err != nil {
+				result = fmt.Sprintf("Error running TightVNC\n%s", err)
+			}
+		}
+	}
+
 	return func() tea.Msg {
-		return backgroundJobMsg{result: "Verified mofo!"}
+		return backgroundJobMsg{result: result}
 	}
 }
 func ShowMenu(app *applicationMain) {
-	header := lipHeaderStyle.Render(headerMenu) + lipManifestStyle.Render(app.manifest)
 
 	const defaultWidth = 90
 
@@ -473,7 +516,7 @@ func ShowMenu(app *applicationMain) {
 
 	m := MenuList{
 		list:       l,
-		header:     header,
+		header:     app.header,
 		state:      StateMainMenu,
 		spinner:    s,
 		spinnerMsg: "Action Performing",

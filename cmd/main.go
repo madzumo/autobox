@@ -24,7 +24,7 @@ var (
 
 type applicationMain struct {
 	settings *settingsConfig
-	manifest string
+	header   string
 }
 
 type settingsConfig struct {
@@ -38,19 +38,25 @@ type settingsConfig struct {
 
 func main() {
 
-	settingsX, _ := getSettings()
-
+	settingsX, err := getSettings()
+	if err != nil {
+		fmt.Printf("Error retrieving settings: %s", err)
+	}
 	app := &applicationMain{
 		settings: settingsX,
-		manifest: fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", settingsX.Provider, settingsX.DoAPI, settingsX.NumberBoxes, settingsX.URL),
 	}
-
+	app.updateHeader()
 	ShowMenu(app)
 }
 
-func getSettings() (*settingsConfig, error) {
+func (app *applicationMain) updateHeader() {
+	manifest := fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.DoAPI, app.settings.NumberBoxes, app.settings.URL)
+	app.header = lipHeaderStyle.Render(headerMenu) + lipManifestStyle.Render(manifest)
+}
 
-	configTemp := settingsConfig{
+func getSettings() (settings *settingsConfig, err error) {
+
+	settingsTemp := settingsConfig{
 		DoAPI:       "APIkey",
 		NumberBoxes: 1,
 		AwsKey:      "awsKEY",
@@ -60,11 +66,15 @@ func getSettings() (*settingsConfig, error) {
 
 	data, err := os.ReadFile(settingsFileName)
 	if err != nil {
-		return &configTemp, err
+		return &settingsTemp, err
 	}
 
-	err = json.Unmarshal(data, &configTemp)
-	return &configTemp, err
+	err = json.Unmarshal(data, &settingsTemp)
+	if err != nil {
+		return &settingsTemp, err
+	}
+
+	return &settingsTemp, nil
 }
 
 func saveSettings(config *settingsConfig) error {

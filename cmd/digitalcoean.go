@@ -22,7 +22,7 @@ var (
 	tags      = []string{"AUTO-BOX"}
 )
 
-func (app *applicationMain) createBox(token string) {
+func (app *applicationMain) createBox(token string) error {
 	client := godo.NewFromToken(token)
 	ctx := context.TODO()
 
@@ -31,7 +31,7 @@ func (app *applicationMain) createBox(token string) {
 	// Retrieve all SSH keys on the account
 	sshKeys, _, err := client.Keys.List(ctx, &godo.ListOptions{})
 	if err != nil {
-		fmt.Printf("Error retrieving SSH keys: %v", err)
+		return err
 	}
 
 	// Convert to the required type for DropletCreateRequest
@@ -56,12 +56,13 @@ func (app *applicationMain) createBox(token string) {
 
 	_, _, err2 := client.Droplets.Create(ctx, createRequest)
 	if err2 != nil {
-		fmt.Printf("Error creating droplet: %v", err2)
+		return err2
 	}
-	fmt.Printf("Droplet created!\n")
+	fmt.Println("Droplet created!")
+	return nil
 }
 
-func (app *applicationMain) deleteBox(token string) {
+func (app *applicationMain) deleteBox(token string) error {
 	//boxes is []int
 	// boxes, _ := app.getIDsLocal()
 	// client := godo.NewFromToken(token)
@@ -78,11 +79,7 @@ func (app *applicationMain) deleteBox(token string) {
 	tag := "AUTO-BOX"
 
 	_, err := client.Droplets.DeleteByTag(ctx, tag)
-	if err != nil {
-		fmt.Printf("Error deleting droplets with tag %q: %v\n", tag, err)
-	} else {
-		fmt.Printf("Successfully deleted all droplets with tag %q\n", tag)
-	}
+	return err
 }
 
 func (app *applicationMain) createFirewall(token string) error {
@@ -143,7 +140,7 @@ func (app *applicationMain) createFirewall(token string) error {
 	//look for an existing firewall with same name
 	for _, fw := range firewalls {
 		if fw.Name == "autoBOX-firewall" {
-			fmt.Printf("Firewall already exists with ID: %s\n", fw.ID)
+			// fmt.Printf("Firewall already exists with ID: %s\n", fw.ID)
 			return nil
 		}
 	}
@@ -153,7 +150,6 @@ func (app *applicationMain) createFirewall(token string) error {
 	if err2 != nil {
 		return err2
 	}
-	fmt.Printf("Firewall created\n")
 	return nil
 }
 
@@ -294,7 +290,7 @@ func (app *applicationMain) getIDsLocal() ([]int, error) {
 	return ids, nil
 }
 
-func (app *applicationMain) createPostSCRIPT(dropletIP string) {
+func (app *applicationMain) createPostSCRIPT(dropletIP string) error {
 	// Replace the IP with the provided dropletIP
 	commands := fmt.Sprintf(`
 ssh -o StrictHostKeyChecking=no root@%s "export URL='%s' && curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash"
@@ -306,8 +302,7 @@ ssh -o StrictHostKeyChecking=no root@%s "export URL='%s' && curl -sSL https://ra
 	// Ensure the directory exists
 	err2 := os.MkdirAll("boxes", 0755)
 	if err2 != nil {
-		fmt.Println("Error creating directory:", err2)
-		return
+		return err2
 	}
 
 	// Full path for the file
@@ -316,14 +311,13 @@ ssh -o StrictHostKeyChecking=no root@%s "export URL='%s' && curl -sSL https://ra
 	// Create or overwrite the .ps1 file in the current directory
 	err := os.WriteFile(fullPath, []byte(commands), 0644)
 	if err != nil {
-		fmt.Println("Error writing to file:", err)
-		return
+		return err
 	}
 
-	fmt.Printf("PowerShell script saved as %s.\n", filename)
+	return nil
 }
 
-func (app *applicationMain) createPS1files() {
+func (app *applicationMain) compileIPaddresses() (ips []string, err error) {
 	client := godo.NewFromToken(app.settings.DoAPI)
 	ctx := context.TODO()
 	tag := "AUTO-BOX"
@@ -331,7 +325,7 @@ func (app *applicationMain) createPS1files() {
 	// List droplets by tag
 	droplets, _, err := client.Droplets.ListByTag(ctx, tag, &godo.ListOptions{})
 	if err != nil {
-		log.Fatalf("Error retrieving droplets with tag %s: %v", tag, err)
+		return nil, err
 	}
 
 	// Retrieve public IP addresses of each droplet
@@ -339,10 +333,10 @@ func (app *applicationMain) createPS1files() {
 		for _, network := range droplet.Networks.V4 {
 			if network.Type == "public" {
 				//fmt.Printf("Droplet: %s, Public IP: %s\n", droplet.Name, network.IPAddress)
-				app.createPostSCRIPT(network.IPAddress)
+				ips = append(ips, network.IPAddress)
 			}
 		}
 	}
 
-	fmt.Println("Created PS1 files under Boxes folder")
+	return ips, nil
 }

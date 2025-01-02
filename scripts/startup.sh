@@ -11,11 +11,11 @@ expect -c '
 spawn vncserver
 expect {
     "Password:" {
-        send "prime6996\r"
+        send "prime7\r"
         exp_continue
     }
     "Verify:" {
-        send "prime6996\r"
+        send "prime7\r"
         exp_continue
     }
     "Would you like to enter a view-only password (y/n)?" {

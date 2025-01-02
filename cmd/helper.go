@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 )
 
-func (app *applicationMain) runVNCcommand() {
+func (app *applicationMain) runVNC(ipDestination string) error {
 	// Define the absolute path to the executable
 	executable := `C:\Program Files\TightVNC\tvnviewer.exe`
 
 	// Define the arguments for the executable
 	args := []string{
-		"167.71.180.205::5901",
-		"-password=prime6996",
+		fmt.Sprintf("%s::5901", ipDestination),
+		"-password=prime7",
 	}
 
 	// Create the command
@@ -25,22 +25,23 @@ func (app *applicationMain) runVNCcommand() {
 	cmd.Stderr = os.Stderr
 
 	// Run the command
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error executing command: %v\n", err)
-	} else {
-		fmt.Println("Command executed successfully.")
-	}
+	err := cmd.Run()
+	return err
+	// if err := cmd.Run(); err != nil {
+	// 	fmt.Printf("Error executing command: %v\n", err)
+	// } else {
+	// 	fmt.Println("Command executed successfully.")
+	// }
 }
 
-func (app *applicationMain) runPS1files() {
+func (app *applicationMain) runPS1files() error {
 	// Folder containing the PowerShell scripts
 	scriptsFolder := "./boxes" // Adjust the path as needed
 
 	// Get all .ps1 files in the folder
 	files, err := os.ReadDir(scriptsFolder)
 	if err != nil {
-		fmt.Println("Error reading scripts folder:", err)
-		return
+		return err
 	}
 
 	// Loop through each .ps1 file and execute it
@@ -48,17 +49,26 @@ func (app *applicationMain) runPS1files() {
 		if filepath.Ext(file.Name()) == ".ps1" {
 			scriptPath := filepath.Join(scriptsFolder, file.Name())
 
-			// Command to run the script in a new PowerShell window
-			cmd := exec.Command("powershell", "-NoExit", "-File", scriptPath)
+			// cmd := exec.Command("powershell", "-NoExit", "-File", scriptPath)
+			// err := cmd.Start()
 
-			// Start the PowerShell script in a separate window
-			err := cmd.Start()
-			if err != nil {
-				fmt.Printf("Error starting script %s: %v\n", file.Name(), err)
-				continue
+			psCommand := fmt.Sprintf(
+				"Start-Process powershell.exe -WindowStyle Normal -ArgumentList '-NoExit','-File','%s'",
+				scriptPath,
+			)
+
+			cmd := exec.Command(
+				"powershell.exe",
+				"-NoProfile",
+				"-ExecutionPolicy", "Bypass",
+				"-Command", psCommand,
+			)
+
+			if err := cmd.Start(); err != nil {
+				return err
 			}
-
 			fmt.Printf("Started script: %s\n", file.Name())
 		}
 	}
+	return nil
 }
