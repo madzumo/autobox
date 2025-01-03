@@ -13,7 +13,7 @@ import (
 var (
 	region = "nyc3"
 	size   = "s-1vcpu-2gb" //.018/hour
-	// size = "s-1vcpu-1gb" // .009/hour
+	// size      = "s-1vcpu-1gb" // .009/hour
 	imageSlug = "ubuntu-24-10-x64"
 	tags      = []string{"AUTO-BOX"}
 )

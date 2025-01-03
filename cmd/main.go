@@ -37,6 +37,7 @@ type settingsConfig struct {
 	Provider    string `json:"provider"` //digital, aws or linode
 	URL         string `json:"url"`
 	LinodeAPI   string `json:"linodeAPI"`
+	BoxSize     string `json:"boxsize"`
 }
 
 func main() {
