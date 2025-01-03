@@ -67,7 +67,7 @@ func (app *applicationMain) runPS1files() error {
 			if err := cmd.Start(); err != nil {
 				return err
 			}
-			fmt.Printf("Started script: %s\n", file.Name())
+			// fmt.Printf("Started script: %s\n", file.Name())
 		}
 	}
 	return nil

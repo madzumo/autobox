@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 var (
@@ -51,8 +53,17 @@ func main() {
 }
 
 func (app *applicationMain) updateHeader() {
-	manifest := fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.DoAPI, app.settings.NumberBoxes, app.settings.URL)
-	app.header = lipHeaderStyle.Render(headerMenu) + lipManifestStyle.Render(manifest)
+	var manifest string
+	switch app.settings.Provider {
+	case "digital":
+		manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.DoAPI, app.settings.NumberBoxes, app.settings.URL)
+	case "aws":
+		manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.10s.../%.10s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.AwsKey, app.settings.AwsSecret, app.settings.NumberBoxes, app.settings.URL)
+	case "linode":
+		manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.LinodeAPI, app.settings.NumberBoxes, app.settings.URL)
+	}
+
+	app.header = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(headerColorFront)).Render(headerMenu) + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(manifestColorFront)).Render(manifest)
 }
 
 func getSettings() (settings *settingsConfig, err error) {

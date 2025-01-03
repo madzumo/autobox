@@ -20,8 +20,11 @@ import (
 const listHeight = 14
 
 var (
-	lipHeaderStyle       = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("46"))
-	lipManifestStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
+	digitalColorFront    = "39"
+	awsColorFront        = "220"
+	linodeColorFront     = "64"
+	headerColorFront     = "46"
+	manifestColorFront   = "39"
 	lipSelectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("205"))
 	lipTitleStyle        = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("205"))
 
@@ -133,11 +136,16 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.choice = string(i)
 				switch m.choice {
 				case menuTOP[0]:
-					err := m.app.runPS1files()
-					if err != nil {
-						fmt.Printf("Error executing ps1 scripts:\n%s", err)
+					if m.app.settings.Provider == "digital" {
+						m.app.settings.Provider = "aws"
+						manifestColorFront = awsColorFront
+					} else if m.app.settings.Provider == "aws" {
+						m.app.settings.Provider = "linode"
+						manifestColorFront = linodeColorFront
+					} else {
+						m.app.settings.Provider = "digital"
+						manifestColorFront = digitalColorFront
 					}
-					time.Sleep(10 * time.Second)
 
 					m.app.updateHeader()
 					m.header = m.app.header
@@ -252,7 +260,14 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			switch m.inputPrompt {
 			case menuTOP[1]:
-				m.app.settings.DoAPI = inputValue
+				switch m.app.settings.Provider {
+				case "digital":
+					m.app.settings.DoAPI = inputValue
+				case "aws":
+					m.app.settings.AwsKey = inputValue
+				case "linode":
+					m.app.settings.LinodeAPI = inputValue
+				}
 				m.backgroundJobResult = fmt.Sprintf("Saved API: %s", inputValue)
 				m.app.updateHeader()
 				m.header = m.app.header
@@ -405,119 +420,128 @@ func (m *MenuList) updateListItems() {
 }
 
 func (m *MenuList) backgroundSaveSettings() tea.Cmd {
-	m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("51"))
-	m.spinnerMsg = "Saving Settings"
-	// m.spinner.Tick()
-	time.Sleep(1 * time.Second)
-	saveSettings(m.app.settings)
-
 	return func() tea.Msg {
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("124")) //white = 231
+
+		m.spinnerMsg = "Saving Settings"
+		// m.spinner.Tick()
+		time.Sleep(1 * time.Second)
+		saveSettings(m.app.settings)
+
 		return backgroundJobMsg{result: "Settings Saved"}
 	}
 }
 
 func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
-	fmt.Println("started job")
-	resultX := fmt.Sprintf("%d - Droplets created!", m.app.settings.NumberBoxes)
-
-	err1 := m.app.createFirewall(m.app.settings.DoAPI)
-	if err1 != nil {
-		resultX = fmt.Sprintf("Error creating firewall:\n%s", err1)
-	}
-
-	for i := 1; i <= m.app.settings.NumberBoxes; i++ {
-		err := m.app.createBox(m.app.settings.DoAPI)
-		if err != nil {
-			resultX = fmt.Sprintf("error creating box:\n%s", err)
-		}
-		time.Sleep(1 * time.Second)
-	}
-
 	return func() tea.Msg {
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
+		m.spinnerMsg = "Creating Boxes..."
+		resultX := fmt.Sprintf("%d - Droplets created!", m.app.settings.NumberBoxes)
+
+		err1 := m.app.createFirewall(m.app.settings.DoAPI)
+		if err1 != nil {
+			resultX = fmt.Sprintf("Error creating firewall:\n%s", err1)
+		}
+
+		for i := 1; i <= m.app.settings.NumberBoxes; i++ {
+			err := m.app.createBox(m.app.settings.DoAPI)
+			if err != nil {
+				resultX = fmt.Sprintf("error creating box:\n%s", err)
+			}
+			// time.Sleep(1 * time.Second)
+		}
+
 		return backgroundJobMsg{result: resultX}
 	}
-
 }
 
 func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
-	result := "Finished Post URL Execution"
-	err := m.app.runPS1files()
-	if err != nil {
-		result = fmt.Sprintf("Error executing ps1 scripts:\n%s", err)
-	}
-	time.Sleep(10 * time.Second)
-
 	return func() tea.Msg {
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
+		m.spinnerMsg = "Running URL Execution."
+		result := "Finished Post URL Execution"
+		err := m.app.runPS1files()
+		if err != nil {
+			result = fmt.Sprintf("Error executing ps1 scripts:\n%s", err)
+		}
+		time.Sleep(10 * time.Second)
+
 		return backgroundJobMsg{result: result}
 	}
 }
 
 func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
-	result := "Created PS1 files under Boxes folder"
-	ips, err := m.app.compileIPaddresses()
-	if err != nil {
-		result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
-	} else {
-		startCount, err := countNumberofFiles("./boxes")
+	return func() tea.Msg {
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
+		m.spinnerMsg = "Creating PS1 script files..."
+		result := "Created PS1 files under Boxes folder"
+		ips, err := m.app.compileIPaddresses()
 		if err != nil {
-			fmt.Printf("Error getting number of Files\n%s", err)
-			startCount = 0
+			result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
 		} else {
-			fmt.Printf("Count of files: %d", startCount)
-		}
-		for id, ip := range ips {
-			err := m.app.createPostSCRIPT(ip, (startCount + (id + 1)))
+			startCount, err := countNumberofFiles("./boxes")
 			if err != nil {
-				result = fmt.Sprintf("Error creating post script\n%s", err)
+				fmt.Printf("Error getting number of Files\n%s", err)
+				startCount = 0
+			} else {
+				fmt.Printf("Count of files: %d", startCount)
+			}
+			for id, ip := range ips {
+				err := m.app.createPostSCRIPT(ip, (startCount + (id + 1)))
+				if err != nil {
+					result = fmt.Sprintf("Error creating post script\n%s", err)
+				}
 			}
 		}
-	}
-
-	return func() tea.Msg {
 		return backgroundJobMsg{result: result}
 	}
 }
 
 func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
-	fmt.Println("started job")
-	resultX := "Droplets Deleted!"
-
-	err := m.app.deleteBox(m.app.settings.DoAPI)
-	if err != nil {
-		resultX = fmt.Sprintf("Error deleting droplets\n%s", err)
-	}
-
-	err = m.app.deleteFirewall(m.app.settings.DoAPI)
-	if err != nil {
-		resultX = fmt.Sprintf("Error deleting firewall\n%s", err)
-	}
-
-	err = os.RemoveAll("./boxes")
-	if err != nil {
-		resultX = fmt.Sprintf("Failed to delete boxes folder\n%s", err)
-	}
 	return func() tea.Msg {
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
+		m.spinnerMsg = "Deleting Boxes"
+		fmt.Println("started job")
+		resultX := "Droplets Deleted!"
+
+		err := m.app.deleteBox(m.app.settings.DoAPI)
+		if err != nil {
+			resultX = fmt.Sprintf("Error deleting droplets\n%s", err)
+		}
+
+		err = m.app.deleteFirewall(m.app.settings.DoAPI)
+		if err != nil {
+			resultX = fmt.Sprintf("Error deleting firewall\n%s", err)
+		}
+
+		err = os.RemoveAll("./boxes")
+		if err != nil {
+			resultX = fmt.Sprintf("Failed to delete boxes folder\n%s", err)
+		}
+
 		return backgroundJobMsg{result: resultX}
 	}
 }
 
 func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
-	fmt.Println("started job")
-	result := "Verified mofo!"
+	return func() tea.Msg {
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
+		m.spinnerMsg = "Verify with TightVNC"
+		// fmt.Println("started job")
+		result := "Verified mofo!"
 
-	ips, err := m.app.compileIPaddresses()
-	if err != nil {
-		result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
-	} else {
-		for _, ip := range ips {
-			err := m.app.runVNC(ip)
-			if err != nil {
-				result = fmt.Sprintf("Error running TightVNC\n%s", err)
+		ips, err := m.app.compileIPaddresses()
+		if err != nil {
+			result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+		} else {
+			for _, ip := range ips {
+				err := m.app.runVNC(ip)
+				if err != nil {
+					result = fmt.Sprintf("Error running TightVNC\n%s", err)
+				}
 			}
 		}
-	}
 
-	return func() tea.Msg {
 		return backgroundJobMsg{result: result}
 	}
 }

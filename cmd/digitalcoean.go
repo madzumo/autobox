@@ -54,21 +54,11 @@ func (app *applicationMain) createBox(token string) error {
 	if err2 != nil {
 		return err2
 	}
-	fmt.Println("Droplet created!")
+	// fmt.Println("Droplet created!")
 	return nil
 }
 
 func (app *applicationMain) deleteBox(token string) error {
-	//boxes is []int
-	// boxes, _ := app.getIDsLocal()
-	// client := godo.NewFromToken(token)
-	// ctx := context.TODO()
-	// for _, numID := range boxes {
-	// 	_, err := client.Droplets.Delete(ctx, numID)
-	// 	if err != nil {
-	// 		fmt.Printf("Error deleting droplet: %v", err)
-	// 	}
-	// }
 	client := godo.NewFromToken(token)
 	ctx := context.TODO()
 
