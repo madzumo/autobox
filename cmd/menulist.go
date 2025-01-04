@@ -20,27 +20,21 @@ import (
 const listHeight = 14
 
 var (
-	digitalColorFront    = "39"
-	awsColorFront        = "220"
-	linodeColorFront     = "64"
-	headerColorFront     = "46"
-	manifestColorFront   = "39"
-	lipSelectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("205"))
-	lipTitleStyle        = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("205"))
-
-	titleStyle        = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("111"))
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
-	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
-	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	// menuSMTPcolor       = "184"
+	digitalColorFront   = "39"
+	awsColorFront       = "220"
+	headerColorFront    = "46"
+	manifestColorFront  = "39"
+	lipTitleStyle       = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("205"))
+	itemStyle           = lipgloss.NewStyle().PaddingLeft(4)
+	selectedItemStyle   = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	paginationStyle     = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
+	helpStyle           = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 	textPromptColor     = "141" //"100" //nice: 141
 	textInputColor      = "193" //"40" //nice: 193
 	textErrorColorBack  = "1"
 	textErrorColorFront = "15"
 	textResultJob       = "141" //PINK"205"
 	textJobOutcomeFront = "216"
-	// txtJobOutcomeBack   = "205"
 
 	menuTOP = []string{
 		"DEPLOY Boxes",
@@ -52,10 +46,11 @@ var (
 		"Enter API Token",
 		"Enter AWS Key",
 		"Enter AWS Secret",
-		"Set URL",
-		"Change # of Boxes to deploy",
-		"Change Region",
+		"Region to deploy",
+		"Boxes to deploy",
+		"Set URL Post Action",
 		"Set Batch TAG",
+		"Clean Up AWS related Resources",
 		"Save Settings",
 	}
 )
@@ -98,11 +93,6 @@ type MenuList struct {
 	inputPrompt         string
 	textInputError      bool
 	jobOutcome          string
-	manifestProvider    string
-	manifestBoxes       int
-	manifestLinodeAPI   string
-	manifestAWSkey      string
-	manifestAWSsecret   string
 	app                 *applicationMain
 }
 
@@ -194,11 +184,11 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[9]:
+				case menuTOP[11]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[9]
+					m.inputPrompt = menuTOP[11]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., https://www.whatever.com"
 					m.textInput.Focus()
@@ -207,11 +197,11 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[11]:
+				case menuTOP[9]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[11]
+					m.inputPrompt = menuTOP[9]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., us-east-1"
 					m.textInput.Focus()
@@ -282,8 +272,13 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox(false))
 				case menuTOP[13]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox(true))
+				case menuTOP[14]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -481,7 +476,7 @@ func (m *MenuList) updateListItems() {
 
 func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 	return func() tea.Msg {
-		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("124")) //white = 231
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("193")) //white = 231
 
 		m.spinnerMsg = "Saving Settings"
 		// m.spinner.Tick()
@@ -599,11 +594,14 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 	}
 }
 
-func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
+func (m *MenuList) backgroundJobDeleteBox(cleanUP bool) tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
 		m.spinnerMsg = "Deleting Boxes"
-		resultX := "Boxes & Related Resources Deleted!"
+		resultX := "Boxes Deleted!"
+		if cleanUP {
+			resultX = "Clean up of AWS related rouces complete!"
+		}
 
 		if m.app.Provider == "digital" {
 			err := m.app.Digital.deleteBox()
@@ -623,14 +621,16 @@ func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 				if err != nil {
 					resultX = fmt.Sprintf("%s\n%s", err, resultX)
 				}
-				// err = m.app.deleteSecurityGroups(pepa)
-				// if err != nil {
-				// 	resultX = fmt.Sprintf("%s\n%s", err, resultX)
-				// }
-				// err = m.app.deletePEMFile(m.app.pemFileName, pepa)
-				// if err != nil {
-				// 	resultX = fmt.Sprintf("%s\n%s", err, resultX)
-				// }
+				if cleanUP {
+					err = m.app.Aws.deleteSecurityGroups(pepa)
+					if err != nil {
+						resultX = fmt.Sprintf("%s\n%s", err, resultX)
+					}
+					err = m.app.Aws.deletePEMFile(pepa)
+					if err != nil {
+						resultX = fmt.Sprintf("%s\n%s", err, resultX)
+					}
+				}
 			}
 		}
 

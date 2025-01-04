@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 
 	"github.com/digitalocean/godo"
@@ -162,119 +161,6 @@ func (d *Digital) deleteFirewall() error {
 	return nil
 }
 
-// func (app *applicationMain) addDropletToFirewall(token string, firewallID string, dropletID int) {
-// 	client := godo.NewFromToken(token)
-// 	_, err := client.Firewalls.AddDroplets(context.Background(), firewallID, dropletID)
-// 	if err != nil {
-// 		fmt.Printf("Error adding droplet %d to firewall: %v\n", dropletID, err)
-// 		return
-// 	}
-// 	fmt.Printf("Droplet %d added to firewall successfully.\n", dropletID)
-// }
-
-func (d *Digital) createSSHkey() int {
-	client := godo.NewFromToken(d.ApiToken)
-	ctx := context.TODO()
-
-	keyCreateRequest := &godo.KeyCreateRequest{
-		Name:      "gokey",
-		PublicKey: "publickeyhere",
-	}
-
-	sshKey, _, err := client.Keys.Create(ctx, keyCreateRequest)
-
-	if err != nil {
-		log.Fatalf("Failed to create SSH key: %v", err)
-	}
-
-	fmt.Printf("SSH Key created: %v\n", sshKey.Name)
-	return sshKey.ID
-}
-
-// func (app *applicationMain) saveFirewall(id string) error {
-// 	execpath, _ := os.Executable()
-// 	dir := filepath.Dir(execpath)
-// 	filepath := filepath.Join(dir, "firewall.txt")
-
-// 	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 06044)
-
-// 	if err != nil {
-// 		return fmt.Errorf("failed to open file: %w", err)
-// 	}
-
-// 	defer file.Close()
-
-// 	_, err = file.WriteString(id + "\n")
-// 	if err != nil {
-// 		return fmt.Errorf("failed to write to file: %w", err)
-// 	}
-// 	return nil
-// }
-
-// func (app *applicationMain) saveIDsLocal(id string) error {
-// 	execpath, _ := os.Executable()
-// 	dir := filepath.Dir(execpath)
-// 	filepath := filepath.Join(dir, "ids.txt")
-
-// 	file, err := os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 06044)
-
-// 	if err != nil {
-// 		return fmt.Errorf("failed to open file: %w", err)
-// 	}
-
-// 	defer file.Close()
-
-// 	_, err = file.WriteString(id + "\n")
-// 	if err != nil {
-// 		return fmt.Errorf("failed to write to file: %w", err)
-// 	}
-// 	return nil
-// }
-
-// func (app *applicationMain) getIDsLocal() ([]int, error) {
-// 	execpath, _ := os.Executable()
-// 	dir := filepath.Dir(execpath)
-// 	path := filepath.Join(dir, "ids.txt")
-
-// 	file, err := os.Open(path)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to open file: %w", err)
-// 	}
-// 	defer file.Close()
-
-// 	var ids []int
-// 	scanner := bufio.NewScanner(file)
-
-// 	for scanner.Scan() {
-// 		line := strings.TrimSpace(scanner.Text())
-// 		if line == "" {
-// 			// Skip empty lines
-// 			continue
-// 		}
-
-// 		// Try to convert line to integer
-// 		val, err := strconv.Atoi(line)
-// 		if err != nil {
-// 			// If not an integer, ignore this line
-// 			continue
-// 		}
-
-// 		ids = append(ids, val)
-// 	}
-
-// 	// Check for any scanning error
-// 	if err := scanner.Err(); err != nil {
-// 		return nil, fmt.Errorf("failed to read file: %w", err)
-// 	}
-
-// 	// If no valid integers were found, return nil
-// 	if len(ids) == 0 {
-// 		return nil, nil
-// 	}
-
-// 	return ids, nil
-// }
-
 func (d *Digital) compileIPaddressesDigital() (ips []string, err error) {
 	client := godo.NewFromToken(d.ApiToken)
 	ctx := context.TODO()
@@ -298,3 +184,22 @@ func (d *Digital) compileIPaddressesDigital() (ips []string, err error) {
 
 	return ips, nil
 }
+
+// func (d *Digital) createSSHkey() int {
+// 	client := godo.NewFromToken(d.ApiToken)
+// 	ctx := context.TODO()
+
+// 	keyCreateRequest := &godo.KeyCreateRequest{
+// 		Name:      "gokey",
+// 		PublicKey: "publickeyhere",
+// 	}
+
+// 	sshKey, _, err := client.Keys.Create(ctx, keyCreateRequest)
+
+// 	if err != nil {
+// 		log.Fatalf("Failed to create SSH key: %v", err)
+// 	}
+
+// 	fmt.Printf("SSH Key created: %v\n", sshKey.Name)
+// 	return sshKey.ID
+// }
