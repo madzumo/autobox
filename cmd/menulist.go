@@ -153,8 +153,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 						manifestColorFront = digitalColorFront
 					}
 
-					m.app.updateHeader()
-					m.header = m.app.Header
+					m.header = m.app.getAppHeader()
 					return m, nil
 				case menuTOP[6]:
 					m.prevMenuState = m.state
@@ -320,23 +319,19 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case menuTOP[6]:
 				m.app.Digital.ApiToken = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved API: %s", inputValue)
-				m.app.updateHeader()
-				m.header = m.app.Header
+				m.header = m.app.getAppHeader()
 			case menuTOP[7]:
 				m.app.Aws.Key = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved AWS Key: %s", inputValue)
-				m.app.updateHeader()
-				m.header = m.app.Header
+				m.header = m.app.getAppHeader()
 			case menuTOP[8]:
 				m.app.Aws.Secret = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved AWS Secret: %s", inputValue)
-				m.app.updateHeader()
-				m.header = m.app.Header
+				m.header = m.app.getAppHeader()
 			case menuTOP[9]:
 				m.app.URL = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved URL: %s", inputValue)
-				m.app.updateHeader()
-				m.header = m.app.Header
+				m.header = m.app.getAppHeader()
 			case menuTOP[10]:
 				boxes, err := strconv.Atoi(inputValue)
 				if err != nil {
@@ -344,8 +339,7 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.app.NumberBoxes = boxes
 					m.backgroundJobResult = fmt.Sprintf("Number of Boxes = %s", inputValue)
-					m.app.updateHeader()
-					m.header = m.app.Header
+					m.header = m.app.getAppHeader()
 				}
 			case menuTOP[11]:
 				if m.app.Provider == "digital" {
@@ -354,13 +348,11 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.app.Aws.Region = inputValue
 				}
 				m.backgroundJobResult = fmt.Sprintf("Saved Region: %s", inputValue)
-				m.app.updateHeader()
-				m.header = m.app.Header
+				m.header = m.app.getAppHeader()
 			case menuTOP[12]:
 				m.app.BatchTag = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved Batch Tag: %s", inputValue)
-				m.app.updateHeader()
-				m.header = m.app.Header
+				m.header = m.app.getAppHeader()
 			}
 			m.prevState = m.state
 			m.state = StateResultDisplay
@@ -726,7 +718,7 @@ func ShowMenu(app *applicationMain) {
 
 	m := MenuList{
 		list:       l,
-		header:     app.Header,
+		header:     app.getAppHeader(),
 		state:      StateMainMenu,
 		spinner:    s,
 		spinnerMsg: "Action Performing",

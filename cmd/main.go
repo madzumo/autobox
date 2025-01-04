@@ -25,13 +25,12 @@ var (
 )
 
 type applicationMain struct {
-	Aws         *AWS
-	Digital     *Digital
-	Header      string
-	NumberBoxes int    `json:"boxes"`
-	Provider    string `json:"provider"`
-	URL         string `json:"url"`
-	BatchTag    string `json:"batchtag"`
+	Aws         *AWS     `json:"aws"`
+	Digital     *Digital `json:"digital"`
+	NumberBoxes int      `json:"boxes"`
+	Provider    string   `json:"provider"`
+	URL         string   `json:"url"`
+	BatchTag    string   `json:"batchtag"`
 }
 
 func main() {
@@ -41,11 +40,10 @@ func main() {
 		fmt.Printf("Error retrieving settings: %s", err)
 	}
 
-	app.updateHeader()
 	ShowMenu(app)
 }
 
-func (app *applicationMain) updateHeader() {
+func (app *applicationMain) getAppHeader() string {
 	var manifest string
 	switch app.Provider {
 	case "digital":
@@ -61,7 +59,7 @@ func (app *applicationMain) updateHeader() {
 	} else if app.Provider == "digital" {
 		manifestColorFront = digitalColorFront
 	}
-	app.Header = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(headerColorFront)).Render(headerMenu) + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(manifestColorFront)).Render(manifest)
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(headerColorFront)).Render(headerMenu) + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(manifestColorFront)).Render(manifest)
 }
 
 func getSettings() (appMain *applicationMain, err error) {
