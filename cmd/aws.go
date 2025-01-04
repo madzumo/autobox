@@ -4,50 +4,140 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
-// createPEMFile creates a PEM file and saves it locally.
-func createPEMFile() (string, error) {
-	keyName := "boxPEM"
-	ctx := context.Background()
-	cfg, err := config.LoadDefaultConfig(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	client := ec2.NewFromConfig(cfg)
-
-	resp, err := client.CreateKeyPair(ctx, &ec2.CreateKeyPairInput{
-		KeyName: aws.String(keyName),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	fileName := fmt.Sprintf("%s.pem", keyName)
-	err = os.WriteFile(fileName, []byte(*resp.KeyMaterial), 0600)
-	if err != nil {
-		return "", err
-	}
-
-	fmt.Printf("PEM file created: %s\n", fileName)
-	return fileName, nil
+type AWS struct {
+	Region         string `json:"region"`
+	PemKeyFileName string `json:"pemkeyfilename"`
+	AmiID          string `json:"amiid"`
+	InstanceType   string `json:"instancetype"`
+	Key            string `json:"key"`
+	Secret         string `json:"secret"`
+}
+type EC2InstanceIP struct {
+	InstanceID string
+	PublicIP   string
+	PrivateIP  string
 }
 
-// createSecurityGroup creates a security group allowing inbound HTTP, HTTPS, and VNC (5901) traffic.
-func createSecurityGroup(ctx context.Context, client *ec2.Client, groupName string, description string, vpcID string) (string, error) {
-	resp, err := client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
-		GroupName:   aws.String(groupName),
-		Description: aws.String(description),
-		VpcId:       aws.String(vpcID),
+func (a *AWS) ec2ClientCreds() (*ec2.Client, error) {
+	ctx := context.Background()
+	customCreds := aws.NewCredentialsCache(
+		credentials.NewStaticCredentialsProvider(a.Key, a.Secret, ""),
+	)
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithCredentialsProvider(customCreds), config.WithRegion(a.Region))
+	if err != nil {
+		return nil, err
+	}
+	client := ec2.NewFromConfig(cfg)
+	return client, nil
+}
+
+func (a *AWS) createPEMFile(client *ec2.Client) error {
+	ctx := context.Background()
+	// Check if the key pair already exists
+	existingKEY, err := client.DescribeKeyPairs(ctx, &ec2.DescribeKeyPairsInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("key-name"),
+				Values: []string{a.PemKeyFileName},
+			},
+		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to create security group: %v", err)
+		return err
+	}
+	// If a security group with the given name exists, return its ID
+	if len(existingKEY.KeyPairs) > 0 {
+		return nil
+	}
+
+	resp, err := client.CreateKeyPair(ctx, &ec2.CreateKeyPairInput{
+		KeyName: aws.String(a.PemKeyFileName),
+		TagSpecifications: []types.TagSpecification{
+			{
+				ResourceType: types.ResourceTypeKeyPair,
+				Tags: []types.Tag{
+					{
+						Key:   aws.String("AUTO-BOX"),
+						Value: aws.String("true"),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	scriptsFolder := fmt.Sprintf("./%s", a.Region)
+	// Ensure the directory exists
+	err2 := os.MkdirAll(scriptsFolder, 0755)
+	if err2 != nil {
+		return err2
+	}
+
+	// fileName := fmt.Sprintf("%s.pem", keyName)
+	fileName, err := filepath.Abs(filepath.Join(scriptsFolder, fmt.Sprintf("%s.pem", a.PemKeyFileName)))
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(fileName, []byte(*resp.KeyMaterial), 0400)
+	if err != nil {
+		return err
+	}
+
+	a.restrictWindowsFilePermissions(fileName)
+	return nil
+}
+
+// will install in default VPC
+func (a *AWS) createSecurityGroup(sgName, description string, client *ec2.Client) (string, error) {
+	ctx := context.Background()
+
+	existingGroups, err := client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("group-name"),
+				Values: []string{sgName},
+			},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	// If a security group with the given name exists, return its ID
+	if len(existingGroups.SecurityGroups) > 0 {
+		return *existingGroups.SecurityGroups[0].GroupId, nil
+	}
+
+	resp, err := client.CreateSecurityGroup(ctx, &ec2.CreateSecurityGroupInput{
+		GroupName:   aws.String(sgName),
+		Description: aws.String(description),
+		// VpcId:       aws.String(vpcID),
+		TagSpecifications: []types.TagSpecification{
+			{
+				ResourceType: types.ResourceTypeSecurityGroup,
+				Tags: []types.Tag{
+					{
+						Key:   aws.String("AUTO-BOX"),
+						Value: aws.String("true"),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return "", err
 	}
 
 	securityGroupID := *resp.GroupId
@@ -59,6 +149,7 @@ func createSecurityGroup(ctx context.Context, client *ec2.Client, groupName stri
 		{"tcp", 80},   // HTTP
 		{"tcp", 443},  // HTTPS
 		{"tcp", 5901}, // VNC
+		{"tcp", 22},   //telnet
 	}
 
 	for _, rule := range rules {
@@ -76,31 +167,188 @@ func createSecurityGroup(ctx context.Context, client *ec2.Client, groupName stri
 			},
 		})
 		if err != nil {
-			return "", fmt.Errorf("failed to add rule to security group: %v", err)
+			return "", err
 		}
 	}
 
-	fmt.Printf("Security group created: %s\n", securityGroupID)
+	// fmt.Printf("Security group created: %s\n", securityGroupID)
 	return securityGroupID, nil
 }
 
-// createEC2Instance creates an EC2 instance using the specified PEM file and security group.
-func createEC2Instance(ctx context.Context, client *ec2.Client, keyName, securityGroupID, amiID, instanceType string) (string, error) {
+func (a *AWS) createEC2Instance(securityGroupID string, client *ec2.Client) error {
+	ctx := context.Background()
+
 	resp, err := client.RunInstances(ctx, &ec2.RunInstancesInput{
-		ImageId:      aws.String(amiID),
-		InstanceType: types.InstanceType(instanceType),
-		KeyName:      aws.String(keyName),
+		ImageId:      aws.String(a.AmiID),
+		InstanceType: types.InstanceType(a.InstanceType),
+		KeyName:      aws.String(a.PemKeyFileName),
 		SecurityGroupIds: []string{
 			securityGroupID,
 		},
 		MinCount: aws.Int32(1),
 		MaxCount: aws.Int32(1),
+		TagSpecifications: []types.TagSpecification{
+			{
+				ResourceType: types.ResourceTypeInstance,
+				Tags: []types.Tag{
+					{
+						Key:   aws.String("AUTO-BOX"),
+						Value: aws.String("true"),
+					},
+				},
+			},
+		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to create EC2 instance: %v", err)
+		return err
 	}
 
 	instanceID := *resp.Instances[0].InstanceId
 	fmt.Printf("EC2 instance created: %s\n", instanceID)
-	return instanceID, nil
+	return nil
 }
+
+func (a *AWS) deleteEC2Instances(client *ec2.Client) error {
+	ctx := context.Background()
+
+	// Describe instances with the AUTO-BOX tag
+	resp, err := client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("tag:AUTO-BOX"),
+				Values: []string{"true"},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	var instanceIDs []string
+	for _, reservation := range resp.Reservations {
+		for _, instance := range reservation.Instances {
+			instanceIDs = append(instanceIDs, *instance.InstanceId)
+		}
+	}
+
+	if len(instanceIDs) == 0 {
+		fmt.Println("No EC2 instances with tag AUTO-BOX found.")
+		return nil
+	}
+
+	// Terminate the instances
+	_, err = client.TerminateInstances(ctx, &ec2.TerminateInstancesInput{
+		InstanceIds: instanceIDs,
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Terminated EC2 instances: %v\n", instanceIDs)
+	return nil
+}
+
+func (a *AWS) deleteSecurityGroups(client *ec2.Client) error {
+	ctx := context.Background()
+
+	// Describe security groups with the AUTO-BOX tag
+	resp, err := client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("tag:AUTO-BOX"),
+				Values: []string{"true"},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, sg := range resp.SecurityGroups {
+		_, err := client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
+			GroupId: sg.GroupId,
+		})
+		if err != nil {
+			fmt.Printf("Failed to delete security group %s: %v\n", *sg.GroupId, err)
+		} else {
+			fmt.Printf("Deleted security group: %s\n", *sg.GroupId)
+		}
+	}
+
+	return nil
+}
+
+func (a *AWS) deletePEMFile(client *ec2.Client) error {
+	ctx := context.Background()
+
+	// Delete the key pair
+	_, err := client.DeleteKeyPair(ctx, &ec2.DeleteKeyPairInput{
+		KeyName: aws.String(a.PemKeyFileName),
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *AWS) compileIPaddressesAws(client *ec2.Client) (ips []string, fullEC2 []EC2InstanceIP, err error) {
+	ctx := context.Background()
+
+	// Describe EC2 instances
+	resp, err := client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("tag:AUTO-BOX"),
+				Values: []string{"true"},
+			},
+		},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Iterate over reservations and instances to collect IP addresses
+	for _, reservation := range resp.Reservations {
+		for _, instance := range reservation.Instances {
+			ipInfo := EC2InstanceIP{
+				InstanceID: *instance.InstanceId,
+			}
+
+			// Check if Public IP exists
+			if instance.PublicIpAddress != nil {
+				ipInfo.PublicIP = *instance.PublicIpAddress
+				ips = append(ips, *instance.PublicIpAddress)
+			}
+
+			// Check if Private IP exists
+			if instance.PrivateIpAddress != nil {
+				ipInfo.PrivateIP = *instance.PrivateIpAddress
+			}
+
+			fullEC2 = append(fullEC2, ipInfo)
+		}
+	}
+
+	return ips, fullEC2, nil
+}
+
+func (a *AWS) restrictWindowsFilePermissions(fileName string) error {
+	// Get file attributes
+	pointer, err := syscall.UTF16PtrFromString(fileName)
+	if err != nil {
+		return err
+	}
+
+	// Set file as readable only by the owner
+	err = syscall.SetFileAttributes(pointer, syscall.FILE_ATTRIBUTE_READONLY)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// func ec2StatusReady () bool {
+
+// }

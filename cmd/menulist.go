@@ -43,15 +43,19 @@ var (
 	// txtJobOutcomeBack   = "205"
 
 	menuTOP = []string{
-		"Toggle Provider",
-		"Enter API Token or Keys",
-		"Set URL",
-		"Change # of Boxes to deploy",
 		"DEPLOY Boxes",
 		"CREATE PS1 Scripts",
 		"RUN Post URL Action",
 		"VERIFY Boxes (TightVNC)",
 		"DELETE All Boxes",
+		"Toggle Provider",
+		"Enter API Token",
+		"Enter AWS Key",
+		"Enter AWS Secret",
+		"Set URL",
+		"Change # of Boxes to deploy",
+		"Change Region",
+		"Set Batch TAG",
 		"Save Settings",
 	}
 )
@@ -72,6 +76,11 @@ type backgroundJobMsg struct {
 	result string
 }
 
+// // message returned when you have to continue the prompting of data
+//
+//	type continueJobs struct {
+//		result string
+//	}
 type JobList int
 
 type MenuList struct {
@@ -135,26 +144,23 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if ok {
 				m.choice = string(i)
 				switch m.choice {
-				case menuTOP[0]:
-					if m.app.settings.Provider == "digital" {
-						m.app.settings.Provider = "aws"
+				case menuTOP[5]:
+					if m.app.Provider == "digital" {
+						m.app.Provider = "aws"
 						manifestColorFront = awsColorFront
-					} else if m.app.settings.Provider == "aws" {
-						m.app.settings.Provider = "linode"
-						manifestColorFront = linodeColorFront
-					} else {
-						m.app.settings.Provider = "digital"
+					} else if m.app.Provider == "aws" {
+						m.app.Provider = "digital"
 						manifestColorFront = digitalColorFront
 					}
 
 					m.app.updateHeader()
-					m.header = m.app.header
+					m.header = m.app.Header
 					return m, nil
-				case menuTOP[1]:
+				case menuTOP[6]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[1]
+					m.inputPrompt = menuTOP[6]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., dop_v1_a0xx"
 					m.textInput.Focus()
@@ -163,11 +169,37 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[2]:
+				case menuTOP[7]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[2]
+					m.inputPrompt = menuTOP[7]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., AKIAYxx"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 200
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
+				case menuTOP[8]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[8]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., it's a secret.."
+					m.textInput.Focus()
+					m.textInput.CharLimit = 200
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
+				case menuTOP[9]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[9]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., https://www.whatever.com"
 					m.textInput.Focus()
@@ -176,11 +208,24 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[3]:
+				case menuTOP[11]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[3]
+					m.inputPrompt = menuTOP[11]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., us-east-1"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 200
+					m.textInput.Width = 200
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
+				case menuTOP[10]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[10]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., 5"
 					m.textInput.Focus()
@@ -189,17 +234,30 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[4]:
+				case menuTOP[12]:
+					m.prevMenuState = m.state
+					m.prevState = m.state
+					m.state = StateTextInput
+					m.inputPrompt = menuTOP[12]
+					m.textInput = textinput.New()
+					m.textInput.Placeholder = "e.g., TAG you're it"
+					m.textInput.Focus()
+					m.textInput.CharLimit = 10
+					m.textInput.Width = 10
+					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
+					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
+					return m, nil
+				case menuTOP[0]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundJobCreateBox())
-				case menuTOP[5]:
+				case menuTOP[1]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundJobPS1scripts())
-				case menuTOP[6]:
+				case menuTOP[2]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -216,17 +274,17 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					// m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					// return m, nil
-				case menuTOP[7]:
+				case menuTOP[3]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundJobVerifyVNC())
-				case menuTOP[8]:
+				case menuTOP[4]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
-				case menuTOP[9]:
+				case menuTOP[13]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -259,45 +317,55 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			inputValue := m.textInput.Value() // User pressed enter, save the input
 
 			switch m.inputPrompt {
-			case menuTOP[1]:
-				switch m.app.settings.Provider {
-				case "digital":
-					m.app.settings.DoAPI = inputValue
-				case "aws":
-					m.app.settings.AwsKey = inputValue
-				case "linode":
-					m.app.settings.LinodeAPI = inputValue
-				}
+			case menuTOP[6]:
+				m.app.Digital.ApiToken = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved API: %s", inputValue)
 				m.app.updateHeader()
-				m.header = m.app.header
-			case menuTOP[2]:
-				m.app.settings.URL = inputValue
+				m.header = m.app.Header
+			case menuTOP[7]:
+				m.app.Aws.Key = inputValue
+				m.backgroundJobResult = fmt.Sprintf("Saved AWS Key: %s", inputValue)
+				m.app.updateHeader()
+				m.header = m.app.Header
+			case menuTOP[8]:
+				m.app.Aws.Secret = inputValue
+				m.backgroundJobResult = fmt.Sprintf("Saved AWS Secret: %s", inputValue)
+				m.app.updateHeader()
+				m.header = m.app.Header
+			case menuTOP[9]:
+				m.app.URL = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved URL: %s", inputValue)
 				m.app.updateHeader()
-				m.header = m.app.header
-			case menuTOP[3]:
+				m.header = m.app.Header
+			case menuTOP[10]:
 				boxes, err := strconv.Atoi(inputValue)
 				if err != nil {
 					m.backgroundJobResult = "Data inputed is not a valid Number"
 				} else {
-					m.app.settings.NumberBoxes = boxes
+					m.app.NumberBoxes = boxes
 					m.backgroundJobResult = fmt.Sprintf("Number of Boxes = %s", inputValue)
 					m.app.updateHeader()
-					m.header = m.app.header
+					m.header = m.app.Header
 				}
-				// case menuTOP[6]:
-				// 	runBox := inputValue
-				// 	if runBox == "all"{
-				// 		return m, tea.Batch(m.spinner.Tick, m.backgroundJobRunPostURL())
-				// 	}else{
-
-				// 	}
-
+			case menuTOP[11]:
+				if m.app.Provider == "digital" {
+					m.app.Digital.Region = inputValue
+				} else { //AWS
+					m.app.Aws.Region = inputValue
+				}
+				m.backgroundJobResult = fmt.Sprintf("Saved Region: %s", inputValue)
+				m.app.updateHeader()
+				m.header = m.app.Header
+			case menuTOP[12]:
+				m.app.BatchTag = inputValue
+				m.backgroundJobResult = fmt.Sprintf("Saved Batch Tag: %s", inputValue)
+				m.app.updateHeader()
+				m.header = m.app.Header
 			}
 			m.prevState = m.state
 			m.state = StateResultDisplay
 			return m, nil
+
 		case tea.KeyEsc:
 			// m.state = StateSettingsMenu
 			m.state = m.prevState
@@ -426,7 +494,7 @@ func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 		m.spinnerMsg = "Saving Settings"
 		// m.spinner.Tick()
 		time.Sleep(1 * time.Second)
-		saveSettings(m.app.settings)
+		saveSettings(m.app)
 
 		return backgroundJobMsg{result: "Settings Saved"}
 	}
@@ -436,19 +504,40 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
 		m.spinnerMsg = "Creating Boxes..."
-		resultX := fmt.Sprintf("%d - Droplets created!", m.app.settings.NumberBoxes)
+		resultX := fmt.Sprintf("%d - Boxes created!", m.app.NumberBoxes)
 
-		err1 := m.app.createFirewall(m.app.settings.DoAPI)
-		if err1 != nil {
-			resultX = fmt.Sprintf("Error creating firewall:\n%s", err1)
-		}
-
-		for i := 1; i <= m.app.settings.NumberBoxes; i++ {
-			err := m.app.createBox(m.app.settings.DoAPI)
-			if err != nil {
-				resultX = fmt.Sprintf("error creating box:\n%s", err)
+		if m.app.Provider == "digital" {
+			err1 := m.app.Digital.createFirewall()
+			if err1 != nil {
+				resultX = fmt.Sprintf("Error creating firewall:\n%s", err1)
 			}
-			// time.Sleep(1 * time.Second)
+			for i := 1; i <= m.app.NumberBoxes; i++ {
+				err := m.app.Digital.createBox()
+				if err != nil {
+					resultX = fmt.Sprintf("error creating box:\n%s", err)
+				}
+				// time.Sleep(1 * time.Second)
+			}
+		} else { //aws
+			pepa, err := m.app.Aws.ec2ClientCreds()
+			if err != nil {
+				resultX = fmt.Sprintf("error getting AWS credentials:\n%s", err)
+			} else {
+				err = m.app.Aws.createPEMFile(pepa)
+				if err != nil {
+					resultX = fmt.Sprintf("error creating PEM:\n%s", err)
+				} else {
+					sgAuto, err2 := m.app.Aws.createSecurityGroup("sgAutoBox", "pepita stuff", pepa)
+					if err2 != nil {
+						resultX = fmt.Sprintf("error creating Security Group:\n%s", err2)
+					} else {
+						for i := 1; i <= m.app.NumberBoxes; i++ {
+							m.app.Aws.createEC2Instance(sgAuto, pepa)
+						}
+					}
+				}
+
+			}
 		}
 
 		return backgroundJobMsg{result: resultX}
@@ -475,24 +564,45 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
 		m.spinnerMsg = "Creating PS1 script files..."
 		result := "Created PS1 files under Boxes folder"
-		ips, err := m.app.compileIPaddresses()
+
+		startCount, err := countNumberofFiles(fmt.Sprintf("./%s", m.app.Digital.Region))
+		if m.app.Provider == "aws" {
+			startCount, err = countNumberofFiles(fmt.Sprintf("./%s", m.app.Aws.Region))
+		}
 		if err != nil {
-			result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
-		} else {
-			startCount, err := countNumberofFiles("./boxes")
+			fmt.Printf("Error getting number of Files in boxes\n%s", err)
+			startCount = 0
+		}
+
+		if m.app.Provider == "digital" {
+			ips, err := m.app.Digital.compileIPaddressesDigital()
 			if err != nil {
-				fmt.Printf("Error getting number of Files\n%s", err)
-				startCount = 0
+				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
 			} else {
-				fmt.Printf("Count of files: %d", startCount)
+				for _, ip := range ips {
+					startCount++
+					err := m.app.createPostSCRIPT(ip, startCount, "")
+					if err != nil {
+						result = fmt.Sprintf("Error creating post script\n%s", err)
+					}
+				}
 			}
-			for id, ip := range ips {
-				err := m.app.createPostSCRIPT(ip, (startCount + (id + 1)))
-				if err != nil {
-					result = fmt.Sprintf("Error creating post script\n%s", err)
+		} else { //AWS
+			pepa, _ := m.app.Aws.ec2ClientCreds()
+			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa)
+			if err != nil {
+				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+			} else {
+				for _, ip := range ips {
+					startCount++
+					err := m.app.createPostSCRIPT(ip, startCount, m.app.Aws.PemKeyFileName)
+					if err != nil {
+						result = fmt.Sprintf("Error creating post script\n%s", err)
+					}
 				}
 			}
 		}
+
 		return backgroundJobMsg{result: result}
 	}
 }
@@ -501,20 +611,42 @@ func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
 		m.spinnerMsg = "Deleting Boxes"
-		fmt.Println("started job")
-		resultX := "Droplets Deleted!"
+		resultX := "Boxes & Related Resources Deleted!"
 
-		err := m.app.deleteBox(m.app.settings.DoAPI)
-		if err != nil {
-			resultX = fmt.Sprintf("Error deleting droplets\n%s", err)
+		if m.app.Provider == "digital" {
+			err := m.app.Digital.deleteBox()
+			if err != nil {
+				resultX = fmt.Sprintf("Error deleting droplets\n%s", err)
+			}
+			err = m.app.Digital.deleteFirewall()
+			if err != nil {
+				resultX = fmt.Sprintf("Error deleting firewall\n%s", err)
+			}
+		} else { //aws
+			pepa, err := m.app.Aws.ec2ClientCreds()
+			if err != nil {
+				resultX = fmt.Sprintf("error getting AWS credentials:\n%s", err)
+			} else {
+				err = m.app.Aws.deleteEC2Instances(pepa)
+				if err != nil {
+					resultX = fmt.Sprintf("%s\n%s", err, resultX)
+				}
+				// err = m.app.deleteSecurityGroups(pepa)
+				// if err != nil {
+				// 	resultX = fmt.Sprintf("%s\n%s", err, resultX)
+				// }
+				// err = m.app.deletePEMFile(m.app.pemFileName, pepa)
+				// if err != nil {
+				// 	resultX = fmt.Sprintf("%s\n%s", err, resultX)
+				// }
+			}
 		}
 
-		err = m.app.deleteFirewall(m.app.settings.DoAPI)
-		if err != nil {
-			resultX = fmt.Sprintf("Error deleting firewall\n%s", err)
+		scriptsFolder := fmt.Sprintf("./%s", m.app.Digital.Region)
+		if m.app.Provider == "aws" {
+			scriptsFolder = fmt.Sprintf("./%s", m.app.Aws.Region)
 		}
-
-		err = os.RemoveAll("./boxes")
+		err := os.RemoveAll(scriptsFolder)
 		if err != nil {
 			resultX = fmt.Sprintf("Failed to delete boxes folder\n%s", err)
 		}
@@ -530,14 +662,43 @@ func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
 		// fmt.Println("started job")
 		result := "Verified mofo!"
 
-		ips, err := m.app.compileIPaddresses()
-		if err != nil {
-			result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
-		} else {
-			for _, ip := range ips {
-				err := m.app.runVNC(ip)
-				if err != nil {
-					result = fmt.Sprintf("Error running TightVNC\n%s", err)
+		if m.app.Provider == "digital" {
+			scriptsFolder := fmt.Sprintf("./%s", m.app.Digital.Region)
+			files, _ := os.ReadDir(scriptsFolder)
+			ips, err := m.app.Digital.compileIPaddressesDigital()
+			if err != nil {
+				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+			} else {
+				for _, ip := range ips {
+					for _, file := range files {
+						if strings.Contains(file.Name(), m.app.BatchTag) &&
+							strings.Contains(file.Name(), ip) {
+							err := m.app.runVNC(ip)
+							if err != nil {
+								result = fmt.Sprintf("Error running TightVNC\n%s", err)
+							}
+						}
+					}
+				}
+			}
+		} else { //aws
+			scriptsFolder := fmt.Sprintf("./%s", m.app.Aws.Region)
+			files, _ := os.ReadDir(scriptsFolder)
+			pepa, _ := m.app.Aws.ec2ClientCreds()
+			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa)
+			if err != nil {
+				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+			} else {
+				for _, ip := range ips {
+					for _, file := range files {
+						if strings.Contains(file.Name(), m.app.BatchTag) &&
+							strings.Contains(file.Name(), ip) {
+							err := m.app.runVNC(ip)
+							if err != nil {
+								result = fmt.Sprintf("Error running TightVNC\n%s", err)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -565,7 +726,7 @@ func ShowMenu(app *applicationMain) {
 
 	m := MenuList{
 		list:       l,
-		header:     app.header,
+		header:     app.Header,
 		state:      StateMainMenu,
 		spinner:    s,
 		spinnerMsg: "Action Performing",

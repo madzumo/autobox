@@ -5,21 +5,20 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"os"
 
 	"github.com/digitalocean/godo"
 )
 
-var (
-	region = "nyc3"
-	size   = "s-1vcpu-2gb" //.018/hour
-	// size      = "s-1vcpu-1gb" // .009/hour
-	imageSlug = "ubuntu-24-10-x64"
-	tags      = []string{"AUTO-BOX"}
-)
+type Digital struct {
+	ApiToken     string   `json:"apiToken"`
+	Region       string   `json:"region"`
+	InstanceSize string   `json:"instanceSize"`
+	ImageSlug    string   `json:"imageslug"`
+	Tags         []string `json:"tags"`
+}
 
-func (app *applicationMain) createBox(token string) error {
-	client := godo.NewFromToken(token)
+func (d *Digital) createBox() error {
+	client := godo.NewFromToken(d.ApiToken)
 	ctx := context.TODO()
 
 	dropletName := fmt.Sprintf("autobox-%d", rand.Int())
@@ -40,14 +39,14 @@ func (app *applicationMain) createBox(token string) error {
 
 	createRequest := &godo.DropletCreateRequest{
 		Name:   dropletName,
-		Region: region,
-		Size:   size,
+		Region: d.Region,
+		Size:   d.InstanceSize,
 		Image: godo.DropletCreateImage{
-			Slug: imageSlug,
+			Slug: d.ImageSlug,
 		},
 		SSHKeys: dropletSSHKeys,
 		Backups: false,
-		Tags:    tags,
+		Tags:    d.Tags,
 	}
 
 	_, _, err2 := client.Droplets.Create(ctx, createRequest)
@@ -58,8 +57,8 @@ func (app *applicationMain) createBox(token string) error {
 	return nil
 }
 
-func (app *applicationMain) deleteBox(token string) error {
-	client := godo.NewFromToken(token)
+func (d *Digital) deleteBox() error {
+	client := godo.NewFromToken(d.ApiToken)
 	ctx := context.TODO()
 
 	tag := "AUTO-BOX"
@@ -68,7 +67,7 @@ func (app *applicationMain) deleteBox(token string) error {
 	return err
 }
 
-func (app *applicationMain) createFirewall(token string) error {
+func (d *Digital) createFirewall() error {
 	// Define the firewall rule
 	firewallRequest := &godo.FirewallRequest{
 		Name: "autoBOX-Firewall",
@@ -114,7 +113,7 @@ func (app *applicationMain) createFirewall(token string) error {
 		Tags: []string{"AUTO-BOX"},
 	}
 
-	client := godo.NewFromToken(token)
+	client := godo.NewFromToken(d.ApiToken)
 	ctx := context.Background()
 
 	//1. check if the firewall exists
@@ -139,8 +138,8 @@ func (app *applicationMain) createFirewall(token string) error {
 	return nil
 }
 
-func (app *applicationMain) deleteFirewall(token string) error {
-	client := godo.NewFromToken(token)
+func (d *Digital) deleteFirewall() error {
+	client := godo.NewFromToken(d.ApiToken)
 	ctx := context.Background()
 
 	//list all firewalls
@@ -173,8 +172,8 @@ func (app *applicationMain) deleteFirewall(token string) error {
 // 	fmt.Printf("Droplet %d added to firewall successfully.\n", dropletID)
 // }
 
-func (app *applicationMain) createSSHkey(token string) int {
-	client := godo.NewFromToken(token)
+func (d *Digital) createSSHkey() int {
+	client := godo.NewFromToken(d.ApiToken)
 	ctx := context.TODO()
 
 	keyCreateRequest := &godo.KeyCreateRequest{
@@ -276,38 +275,8 @@ func (app *applicationMain) createSSHkey(token string) int {
 // 	return ids, nil
 // }
 
-func (app *applicationMain) createPostSCRIPT(dropletIP string, position int) error {
-	// Replace the IP with the provided dropletIP
-	commands := fmt.Sprintf(`
-ssh -o StrictHostKeyChecking=no root@%s "export URL='%s' && curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash"
-`, dropletIP, app.settings.URL)
-
-	// File name for the PowerShell script
-	filename := fmt.Sprintf("%d-%s.ps1", position, dropletIP)
-
-	// Ensure the directory exists
-	err2 := os.MkdirAll("boxes", 0755)
-	if err2 != nil {
-		return err2
-	}
-
-	//check if this IP has been saved as a script yet
-	// files, err := os.ReadDir("./boxes")
-
-	// Full path for the file
-	fullPath := fmt.Sprintf("%s/%s", "boxes", filename)
-
-	// Create or overwrite the .ps1 file in the current directory
-	err := os.WriteFile(fullPath, []byte(commands), 0644)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (app *applicationMain) compileIPaddresses() (ips []string, err error) {
-	client := godo.NewFromToken(app.settings.DoAPI)
+func (d *Digital) compileIPaddressesDigital() (ips []string, err error) {
+	client := godo.NewFromToken(d.ApiToken)
 	ctx := context.TODO()
 	tag := "AUTO-BOX"
 

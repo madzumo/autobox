@@ -25,75 +25,69 @@ var (
 )
 
 type applicationMain struct {
-	settings *settingsConfig
-	header   string
-}
-
-type settingsConfig struct {
-	DoAPI       string `json:"doAPI"`
+	Aws         *AWS
+	Digital     *Digital
+	Header      string
 	NumberBoxes int    `json:"boxes"`
-	AwsKey      string `json:"awsKey"`
-	AwsSecret   string `json:"awsSecret"`
-	Provider    string `json:"provider"` //digital, aws or linode
+	Provider    string `json:"provider"`
 	URL         string `json:"url"`
-	LinodeAPI   string `json:"linodeAPI"`
-	BoxSize     string `json:"boxsize"`
+	BatchTag    string `json:"batchtag"`
 }
 
 func main() {
 
-	settingsX, err := getSettings()
+	app, err := getSettings()
 	if err != nil {
 		fmt.Printf("Error retrieving settings: %s", err)
 	}
-	app := &applicationMain{
-		settings: settingsX,
-	}
+
 	app.updateHeader()
 	ShowMenu(app)
 }
 
 func (app *applicationMain) updateHeader() {
 	var manifest string
-	switch app.settings.Provider {
+	switch app.Provider {
 	case "digital":
-		manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.DoAPI, app.settings.NumberBoxes, app.settings.URL)
+		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nAPI: %.10s...\nBoxes: %d\nURL: %s\nBatch Tag:%s", app.Provider, app.Digital.Region, app.Digital.ApiToken, app.NumberBoxes, app.URL, app.BatchTag)
 	case "aws":
-		manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.10s.../%.10s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.AwsKey, app.settings.AwsSecret, app.settings.NumberBoxes, app.settings.URL)
-	case "linode":
-		manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.LinodeAPI, app.settings.NumberBoxes, app.settings.URL)
+		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nKey/Secret: %.8s.../%.8s...\nBoxes: %d\nURL: %s\nBatch Tag:%s", app.Provider, app.Aws.Region, app.Aws.Key, app.Aws.Secret, app.NumberBoxes, app.URL, app.BatchTag)
+		// case "linode":
+		// 	manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.LinodeAPI, app.settings.NumberBoxes, app.settings.URL)
 	}
 
-	app.header = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(headerColorFront)).Render(headerMenu) + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(manifestColorFront)).Render(manifest)
+	if app.Provider == "aws" {
+		manifestColorFront = awsColorFront
+	} else if app.Provider == "digital" {
+		manifestColorFront = digitalColorFront
+	}
+	app.Header = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(headerColorFront)).Render(headerMenu) + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(manifestColorFront)).Render(manifest)
 }
 
-func getSettings() (settings *settingsConfig, err error) {
-
-	settingsTemp := settingsConfig{
-		DoAPI:       "APIkey",
+func getSettings() (appMain *applicationMain, err error) {
+	app := &applicationMain{
+		Aws:         &AWS{PemKeyFileName: "autobox", AmiID: "ami-036841078a4b68e14", InstanceType: "t3a.small"},
+		Digital:     &Digital{InstanceSize: "s-1vcpu-2gb", ImageSlug: "ubuntu-24-10-x64", Tags: []string{"AUTO-BOX"}},
 		NumberBoxes: 1,
-		AwsKey:      "awsKEY",
-		AwsSecret:   "awsSECRET",
-		Provider:    "digital",
-		LinodeAPI:   "APIkey",
+		Provider:    "aws",
 	}
 
 	data, err := os.ReadFile(settingsFileName)
 	if err != nil {
-		return &settingsTemp, err
+		return app, err
 	}
 
-	err = json.Unmarshal(data, &settingsTemp)
+	err = json.Unmarshal(data, &app)
 	if err != nil {
-		return &settingsTemp, err
+		return nil, err
 	}
 
-	return &settingsTemp, nil
+	return app, nil
 }
 
-func saveSettings(config *settingsConfig) error {
+func saveSettings(appMain *applicationMain) error {
 	//convert to struct -> JSON
-	data, err := json.MarshalIndent(config, "", "  ")
+	data, err := json.MarshalIndent(appMain, "", "  ")
 	if err != nil {
 		return err
 	}
