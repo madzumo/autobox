@@ -636,10 +636,10 @@ func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 				if err != nil {
 					resultX = fmt.Sprintf("%s\n%s", err, resultX)
 				}
-				err = m.app.Aws.deleteSecurityGroups(pepa)
-				if err != nil {
-					resultX = fmt.Sprintf("%s\n%s", err, resultX)
-				}
+				// err = m.app.Aws.deleteSecurityGroups(pepa)
+				// if err != nil {
+				// 	resultX = fmt.Sprintf("%s\n%s", err, resultX)
+				// }
 				err = m.app.Aws.deletePEMFile(pepa)
 				if err != nil {
 					resultX = fmt.Sprintf("%s\n%s", err, resultX)

@@ -244,7 +244,40 @@ func (a *AWS) deleteEC2Instances(client *ec2.Client) error {
 		return err
 	}
 
-	fmt.Printf("Terminated EC2 instances: %v\n", instanceIDs)
+	// //wait for them to terminate fully
+	// var allAreTerminated bool
+	// for {
+	// 	resp, err = client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+	// 		Filters: []types.Filter{
+	// 			{
+	// 				Name:   aws.String("tag:AUTO-BOX"),
+	// 				Values: []string{"true"},
+	// 			},
+	// 		},
+	// 	})
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	allAreTerminated = true
+	// 	for _, reservation := range resp.Reservations {
+	// 		for _, instance := range reservation.Instances {
+	// 			for {
+	// 				if *instance.State.Code != 48 { //0-pending, 16-running, 32-shutting-down, 48-terminated
+	// 					allAreTerminated = false
+	// 					fmt.Printf("name: %s state: %d\n", *instance.InstanceId, *instance.State.Code)
+	// 				}
+	// 			}
+
+	// 		}
+	// 	}
+	// 	if allAreTerminated {
+	// 		break
+	// 	} else {
+	// 		time.Sleep(10 * time.Second)
+	// 	}
+	// }
+
+	fmt.Printf("Terminated All EC2 instances: %v\n", instanceIDs)
 	return nil
 }
 
