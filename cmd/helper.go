@@ -218,7 +218,7 @@ func (app *applicationMain) runPS1file(scriptPath, fileName string) error {
 	if err != nil {
 		fmt.Printf("Error with %s:\n%s", fileName, err)
 	} else {
-		fmt.Printf("%s script finished..", fileName)
+		fmt.Printf("\n%s script finished..", fileName)
 	}
 
 	return nil

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atotto/clipboard"
@@ -526,9 +527,10 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 
 func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
 	return func() tea.Msg {
+		var wg sync.WaitGroup
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
-		m.spinnerMsg = "Running URL Execution."
-		result := "Finished Post URL Execution"
+		m.spinnerMsg = "Running Post Launch Scripts"
+		result := "Finished Executing Batch Tag Scripts"
 		scriptsFolder := fmt.Sprintf("./%s", m.app.Digital.Region)
 		if m.app.Provider == "aws" {
 			scriptsFolder = fmt.Sprintf("./%s", m.app.Aws.Region)
@@ -536,7 +538,7 @@ func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
 
 		files, err := os.ReadDir(scriptsFolder)
 		if err != nil {
-			result = fmt.Sprintf("Error executing ps1 scripts:\n%s", err)
+			result = fmt.Sprintf("Error executing scripts:\n%s", err)
 		}
 
 		// Loop through each .ps1 file and execute it
@@ -545,12 +547,19 @@ func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
 			if m.app.BatchTag != "" {
 				batchMatch = strings.Contains(file.Name(), m.app.BatchTag)
 			}
+			delta := 0
 			if filepath.Ext(file.Name()) == ".ps1" && batchMatch {
-				scriptPath, _ := filepath.Abs(filepath.Join(scriptsFolder, file.Name()))
-				go m.app.runPS1file(scriptPath, file.Name())
+				delta++
+				wg.Add(delta)
+				go func() {
+					defer wg.Done()
+					scriptPath, _ := filepath.Abs(filepath.Join(scriptsFolder, file.Name()))
+					m.app.runPS1file(scriptPath, file.Name())
+				}()
 			}
 		}
 
+		wg.Wait()
 		return backgroundJobMsg{result: result}
 	}
 }
