@@ -49,7 +49,6 @@ var (
 		"Boxes to deploy",
 		"Set URL Post Action",
 		"Set Batch TAG",
-		"Clean Up AWS related Resources",
 		"Save Settings",
 	}
 )
