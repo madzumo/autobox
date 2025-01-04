@@ -271,13 +271,8 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox(false))
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
 				case menuTOP[13]:
-					m.prevState = m.state
-					m.prevMenuState = m.state
-					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox(true))
-				case menuTOP[14]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -609,14 +604,11 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 	}
 }
 
-func (m *MenuList) backgroundJobDeleteBox(cleanUP bool) tea.Cmd {
+func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
 		m.spinnerMsg = "Deleting Boxes"
-		resultX := "Boxes Deleted!"
-		if cleanUP {
-			resultX = "Clean up of AWS related rouces complete!"
-		}
+		resultX := "Boxes & Related Resources Deleted!"
 
 		if m.app.Provider == "digital" {
 			err := m.app.Digital.deleteBox()
@@ -636,15 +628,13 @@ func (m *MenuList) backgroundJobDeleteBox(cleanUP bool) tea.Cmd {
 				if err != nil {
 					resultX = fmt.Sprintf("%s\n%s", err, resultX)
 				}
-				if cleanUP {
-					err = m.app.Aws.deleteSecurityGroups(pepa)
-					if err != nil {
-						resultX = fmt.Sprintf("%s\n%s", err, resultX)
-					}
-					err = m.app.Aws.deletePEMFile(pepa)
-					if err != nil {
-						resultX = fmt.Sprintf("%s\n%s", err, resultX)
-					}
+				err = m.app.Aws.deleteSecurityGroups(pepa)
+				if err != nil {
+					resultX = fmt.Sprintf("%s\n%s", err, resultX)
+				}
+				err = m.app.Aws.deletePEMFile(pepa)
+				if err != nil {
+					resultX = fmt.Sprintf("%s\n%s", err, resultX)
 				}
 			}
 		}
@@ -653,9 +643,17 @@ func (m *MenuList) backgroundJobDeleteBox(cleanUP bool) tea.Cmd {
 		if m.app.Provider == "aws" {
 			scriptsFolder = fmt.Sprintf("./%s", m.app.Aws.Region)
 		}
-		err := os.RemoveAll(scriptsFolder)
+		entries, err := os.ReadDir(scriptsFolder)
 		if err != nil {
-			resultX = fmt.Sprintf("Failed to delete boxes folder\n%s", err)
+			resultX = fmt.Sprintf("Failed to clear scripts folder\n%s", err)
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() && filepath.Ext(entry.Name()) == ".ps1" {
+				err = os.Remove(filepath.Join(scriptsFolder, entry.Name()))
+				if err != nil {
+					resultX = fmt.Sprintf("Failed to clear scripts folder\n%s", err)
+				}
+			}
 		}
 
 		return backgroundJobMsg{result: resultX}
