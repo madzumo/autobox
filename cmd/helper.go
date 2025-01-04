@@ -123,57 +123,104 @@ func (app *applicationMain) checkFileNameExist(fileString2Check, directory2Check
 // 	return nil
 // }
 
-func (app *applicationMain) runPS1files() error {
-	scriptsFolder := fmt.Sprintf("./%s", app.Digital.Region)
-	if app.Provider == "aws" {
-		scriptsFolder = fmt.Sprintf("./%s", app.Aws.Region)
-	}
+// func (app *applicationMain) runPS1files() error {
+// 	scriptsFolder := fmt.Sprintf("./%s", app.Digital.Region)
+// 	if app.Provider == "aws" {
+// 		scriptsFolder = fmt.Sprintf("./%s", app.Aws.Region)
+// 	}
 
-	files, err := os.ReadDir(scriptsFolder)
+// 	files, err := os.ReadDir(scriptsFolder)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	// Loop through each .ps1 file and execute it
+// 	batchMatch := true
+// 	for _, file := range files {
+// 		if app.BatchTag != "" {
+// 			batchMatch = strings.Contains(file.Name(), app.BatchTag)
+// 		}
+// 		if filepath.Ext(file.Name()) == ".ps1" && batchMatch {
+// 			// Generate an absolute path for the script
+// 			scriptPath, err := filepath.Abs(filepath.Join(scriptsFolder, file.Name()))
+// 			if err != nil {
+// 				return fmt.Errorf("failed to get absolute path for %s: %w", file.Name(), err)
+// 			}
+
+// 			// psCommand := fmt.Sprintf(
+// 			// 	"Start-Process powershell.exe -WindowStyle Normal -ArgumentList '-NoExit','-File','%s'",
+// 			// 	scriptPath,
+// 			// )
+// 			// cmd := exec.Command(
+// 			// 	"powershell.exe",
+// 			// 	"-NoProfile",
+// 			// 	"-ExecutionPolicy", "Bypass",
+// 			// 	"-Command", psCommand,
+// 			// )
+
+// 			// if err := cmd.Start(); err != nil {
+// 			// 	return fmt.Errorf("failed to start script %s: %w", scriptPath, err)
+// 			// }
+
+// 			psCommand := fmt.Sprintf(
+// 				"Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '%s' -Wait -WindowStyle Normal",
+// 				scriptPath,
+// 			)
+// 			cmd := exec.Command(
+// 				"powershell.exe",
+// 				"-NoProfile",
+// 				"-ExecutionPolicy", "Bypass",
+// 				"-Command", psCommand,
+// 			)
+
+// 			// Run the command
+// 			err = cmd.Run()
+// 			if err != nil {
+// 				fmt.Printf("Error: %v\n", err)
+// 			} else {
+// 				fmt.Println("Post Launch script finished..")
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
+
+func (app *applicationMain) runPS1file(scriptPath, fileName string) error {
+
+	// psCommand := fmt.Sprintf(
+	// 	"Start-Process powershell.exe -WindowStyle Normal -ArgumentList '-NoExit','-File','%s'",
+	// 	scriptPath,
+	// )
+	// cmd := exec.Command(
+	// 	"powershell.exe",
+	// 	"-NoProfile",
+	// 	"-ExecutionPolicy", "Bypass",
+	// 	"-Command", psCommand,
+	// )
+
+	// if err := cmd.Start(); err != nil {
+	// 	return fmt.Errorf("failed to start script %s: %w", scriptPath, err)
+	// }
+
+	psCommand := fmt.Sprintf(
+		"Start-Process -FilePath powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '%s' -Wait -WindowStyle Normal",
+		scriptPath,
+	)
+	cmd := exec.Command(
+		"powershell.exe",
+		"-NoProfile",
+		"-ExecutionPolicy", "Bypass",
+		"-Command", psCommand,
+	)
+
+	// Run the command
+	err := cmd.Run()
 	if err != nil {
-		return err
+		fmt.Printf("Error with %s:\n%s", fileName, err)
+	} else {
+		fmt.Printf("%s script finished..", fileName)
 	}
 
-	// Loop through each .ps1 file and execute it
-	batchMatch := true
-	for _, file := range files {
-		if app.BatchTag != "" {
-			batchMatch = strings.Contains(file.Name(), app.BatchTag)
-		}
-		if filepath.Ext(file.Name()) == ".ps1" && batchMatch {
-			// Generate an absolute path for the script
-			scriptPath, err := filepath.Abs(filepath.Join(scriptsFolder, file.Name()))
-			if err != nil {
-				return fmt.Errorf("failed to get absolute path for %s: %w", file.Name(), err)
-			}
-
-			// Construct the PowerShell command
-			psCommand := fmt.Sprintf(
-				"Start-Process powershell.exe -WindowStyle Normal -ArgumentList '-NoExit','-File','%s'",
-				scriptPath,
-			)
-			// psCommand := fmt.Sprintf(
-			// 	`Start-Process powershell.exe -WindowStyle Normal -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', "& { . '%s'; exit }"`,
-			// 	scriptPath,
-			// )
-
-			cmd := exec.Command(
-				"powershell.exe",
-				"-NoProfile",
-				"-ExecutionPolicy", "Bypass",
-				"-Command", psCommand,
-			)
-
-			if err := cmd.Start(); err != nil {
-				return fmt.Errorf("failed to start script %s: %w", scriptPath, err)
-			}
-
-			// Optionally wait for the process to complete
-			if err := cmd.Wait(); err != nil {
-				return fmt.Errorf("script %s finished with error: %w", scriptPath, err)
-			}
-		}
-	}
 	return nil
 }
 
@@ -182,19 +229,6 @@ func countNumberofFiles(folderPath string) (int, error) {
 	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
 		return 0, nil
 	}
-
-	// // Open the folder
-	// dir, err := os.Open(folderPath)
-	// if err != nil {
-	// 	return 0, err
-	// }
-	// defer dir.Close()
-
-	// // Read the folder's contents
-	// files, err := dir.Readdir(0)
-	// if err != nil {
-	// 	return 0, err
-	// }
 
 	//read files in directory
 	files, err := os.ReadDir(folderPath)

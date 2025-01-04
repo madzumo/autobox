@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -16,8 +17,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
-
-const listHeight = 14
 
 var (
 	digitalColorFront   = "39"
@@ -323,7 +322,7 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.app.Aws.Secret = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved AWS Secret: %s", inputValue)
 				m.header = m.app.getAppHeader()
-			case menuTOP[9]:
+			case menuTOP[11]:
 				m.app.URL = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved URL: %s", inputValue)
 				m.header = m.app.getAppHeader()
@@ -336,7 +335,7 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.backgroundJobResult = fmt.Sprintf("Number of Boxes = %s", inputValue)
 					m.header = m.app.getAppHeader()
 				}
-			case menuTOP[11]:
+			case menuTOP[9]:
 				if m.app.Provider == "digital" {
 					m.app.Digital.Region = inputValue
 				} else { //AWS
@@ -476,7 +475,7 @@ func (m *MenuList) updateListItems() {
 
 func (m *MenuList) backgroundSaveSettings() tea.Cmd {
 	return func() tea.Msg {
-		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("193")) //white = 231
+		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("13")) //white = 231
 
 		m.spinnerMsg = "Saving Settings"
 		// m.spinner.Tick()
@@ -536,11 +535,27 @@ func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
 		m.spinnerMsg = "Running URL Execution."
 		result := "Finished Post URL Execution"
-		err := m.app.runPS1files()
+		scriptsFolder := fmt.Sprintf("./%s", m.app.Digital.Region)
+		if m.app.Provider == "aws" {
+			scriptsFolder = fmt.Sprintf("./%s", m.app.Aws.Region)
+		}
+
+		files, err := os.ReadDir(scriptsFolder)
 		if err != nil {
 			result = fmt.Sprintf("Error executing ps1 scripts:\n%s", err)
 		}
-		time.Sleep(10 * time.Second)
+
+		// Loop through each .ps1 file and execute it
+		batchMatch := true
+		for _, file := range files {
+			if m.app.BatchTag != "" {
+				batchMatch = strings.Contains(file.Name(), m.app.BatchTag)
+			}
+			if filepath.Ext(file.Name()) == ".ps1" && batchMatch {
+				scriptPath, _ := filepath.Abs(filepath.Join(scriptsFolder, file.Name()))
+				go m.app.runPS1file(scriptPath, file.Name())
+			}
+		}
 
 		return backgroundJobMsg{result: result}
 	}
@@ -550,7 +565,7 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
 		m.spinnerMsg = "Creating PS1 script files..."
-		result := "Created PS1 files under Boxes folder"
+		result := "Created PS1 files for Post Action"
 
 		startCount, err := countNumberofFiles(fmt.Sprintf("./%s", m.app.Digital.Region))
 		if m.app.Provider == "aws" {
@@ -700,10 +715,11 @@ func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
 }
 func ShowMenu(app *applicationMain) {
 
-	const defaultWidth = 90
+	const listWidth = 90
+	const listHeight = 14
 
 	// Initialize the list with empty items; items will be set in updateListItems
-	l := list.New([]list.Item{}, itemDelegate{}, defaultWidth, listHeight)
+	l := list.New([]list.Item{}, itemDelegate{}, listWidth, listHeight)
 	l.Title = ""
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
