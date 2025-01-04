@@ -48,7 +48,7 @@ var (
 		"Enter AWS Secret",
 		"Region to deploy",
 		"Boxes to deploy",
-		"Set URL Post Action",
+		"Set URL Launch",
 		"Set Batch TAG",
 		"Save Settings",
 	}
