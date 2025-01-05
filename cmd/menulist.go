@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -81,7 +80,6 @@ type MenuList struct {
 	list                list.Model
 	choice              string
 	header              string
-	headerIP            string
 	state               MenuState
 	prevState           MenuState
 	prevMenuState       MenuState
@@ -116,14 +114,14 @@ func (m MenuList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.MouseMsg:
-		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
-			err := clipboard.WriteAll(m.headerIP)
-			if err != nil {
-				fmt.Println("Failed to copy to clipboard:", err)
-			}
-		}
-		return m, nil
+	// case tea.MouseMsg:
+	// 	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+	// 		err := clipboard.WriteAll(m.headerIP)
+	// 		if err != nil {
+	// 			fmt.Println("Failed to copy to clipboard:", err)
+	// 		}
+	// 	}
+	// 	return m, nil
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
 		case "q", "ctrl+c":
