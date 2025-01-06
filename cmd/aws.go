@@ -175,7 +175,7 @@ func (a *AWS) createSecurityGroup(sgName, description string, client *ec2.Client
 	return securityGroupID, nil
 }
 
-func (a *AWS) createEC2Instance(securityGroupID string, client *ec2.Client) error {
+func (a *AWS) createEC2Instance(securityGroupID string, client *ec2.Client, batchT string) error {
 	ctx := context.Background()
 
 	resp, err := client.RunInstances(ctx, &ec2.RunInstancesInput{
@@ -195,6 +195,10 @@ func (a *AWS) createEC2Instance(securityGroupID string, client *ec2.Client) erro
 						Key:   aws.String("AUTO-BOX"),
 						Value: aws.String("true"),
 					},
+					{
+						Key:   aws.String("BatchTag"),
+						Value: aws.String(batchT),
+					},
 				},
 			},
 		},
@@ -208,7 +212,7 @@ func (a *AWS) createEC2Instance(securityGroupID string, client *ec2.Client) erro
 	return nil
 }
 
-func (a *AWS) deleteEC2Instances(client *ec2.Client) error {
+func (a *AWS) deleteEC2Instances(client *ec2.Client, batchT string) error {
 	ctx := context.Background()
 
 	// Describe instances with the AUTO-BOX tag
@@ -220,6 +224,20 @@ func (a *AWS) deleteEC2Instances(client *ec2.Client) error {
 			},
 		},
 	})
+	if batchT != "" {
+		resp, err = client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+			Filters: []types.Filter{
+				{
+					Name:   aws.String("tag:AUTO-BOX"),
+					Values: []string{"true"},
+				},
+				{
+					Name:   aws.String("tag:BatchTag"),
+					Values: []string{batchT},
+				},
+			},
+		})
+	}
 	if err != nil {
 		return err
 	}

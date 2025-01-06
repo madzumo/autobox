@@ -40,14 +40,14 @@ var (
 		"CREATE PS1 Scripts",
 		"RUN Post URL Action",
 		"VERIFY Boxes (TightVNC)",
-		"DELETE All Boxes",
+		"DELETE Boxes",
 		"Toggle Provider",
 		"Enter API Token",
 		"Enter AWS Key",
 		"Enter AWS Secret",
 		"Region to deploy",
 		"Boxes to deploy",
-		"URL Post Launch",
+		"Set URL Post Launch",
 		"Set Batch TAG",
 		"Save Settings",
 	}
@@ -511,7 +511,7 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 						resultX = fmt.Sprintf("error creating Security Group:\n%s", err2)
 					} else {
 						for i := 1; i <= m.app.NumberBoxes; i++ {
-							m.app.Aws.createEC2Instance(sgAuto, pepa)
+							m.app.Aws.createEC2Instance(sgAuto, pepa, m.app.BatchTag)
 						}
 					}
 				}
@@ -630,17 +630,19 @@ func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 			if err != nil {
 				resultX = fmt.Sprintf("error getting AWS credentials:\n%s", err)
 			} else {
-				err = m.app.Aws.deleteEC2Instances(pepa)
+				err = m.app.Aws.deleteEC2Instances(pepa, m.app.BatchTag)
 				if err != nil {
 					resultX = fmt.Sprintf("%s\n%s", err, resultX)
 				}
-				// err = m.app.Aws.deleteSecurityGroups(pepa)
-				// if err != nil {
-				// 	resultX = fmt.Sprintf("%s\n%s", err, resultX)
-				// }
-				err = m.app.Aws.deletePEMFile(pepa)
-				if err != nil {
-					resultX = fmt.Sprintf("%s\n%s", err, resultX)
+				if m.app.BatchTag == "" {
+					// err = m.app.Aws.deleteSecurityGroups(pepa)
+					// if err != nil {
+					// 	resultX = fmt.Sprintf("%s\n%s", err, resultX)
+					// }
+					err = m.app.Aws.deletePEMFile(pepa)
+					if err != nil {
+						resultX = fmt.Sprintf("%s\n%s", err, resultX)
+					}
 				}
 			}
 		}
