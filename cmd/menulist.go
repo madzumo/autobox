@@ -565,8 +565,8 @@ func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
 func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 	return func() tea.Msg {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
-		m.spinnerMsg = "Creating Launch scripts..."
-		result := "Created Post Launch scripts"
+		m.spinnerMsg = "Creating Post URL Launch scripts..."
+		result := "Created Post URL Launch scripts"
 
 		startCount, err := countNumberofFiles(fmt.Sprintf("./%s", m.app.Digital.Region))
 		if m.app.Provider == "aws" {
