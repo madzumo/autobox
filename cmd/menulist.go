@@ -656,10 +656,19 @@ func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 			resultX = fmt.Sprintf("Failed to clear scripts folder\n%s", err)
 		}
 		for _, entry := range entries {
-			if !entry.IsDir() && (filepath.Ext(entry.Name()) == ".ps1" || filepath.Ext(entry.Name()) == ".pem") {
-				err = os.Remove(filepath.Join(scriptsFolder, entry.Name()))
-				if err != nil {
-					resultX = fmt.Sprintf("Failed to clear scripts folder\n%s", err)
+			if m.app.BatchTag == "" {
+				if !entry.IsDir() && (filepath.Ext(entry.Name()) == ".ps1" || filepath.Ext(entry.Name()) == ".pem") {
+					err = os.Remove(filepath.Join(scriptsFolder, entry.Name()))
+					if err != nil {
+						resultX = fmt.Sprintf("Failed to clear scripts folder\n%s", err)
+					}
+				}
+			} else {
+				if !entry.IsDir() && filepath.Ext(entry.Name()) == ".ps1" && strings.Contains(entry.Name(), m.app.BatchTag) {
+					err = os.Remove(filepath.Join(scriptsFolder, entry.Name()))
+					if err != nil {
+						resultX = fmt.Sprintf("Failed to clear scripts folder\n%s", err)
+					}
 				}
 			}
 		}
