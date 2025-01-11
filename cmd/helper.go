@@ -35,7 +35,7 @@ func (app *applicationMain) runVNC(ipDestination string) error {
 	// }
 }
 
-func (app *applicationMain) createPostSCRIPT(ipAddress string, position int, awsKeyName string) error {
+func (app *applicationMain) createPostSCRIPT(ipAddress string, awsKeyName string) error {
 	// scriptsFolder := fmt.Sprintf("./%s", app.settings.RegionDigital)
 	scriptsFolder := app.Digital.Region
 	commands := fmt.Sprintf(`ssh -o StrictHostKeyChecking=no root@%s "export URL='%s' && curl -sSL https://raw.githubusercontent.com/madzumo/autobox/main/scripts/startup.sh | bash"`,
@@ -51,7 +51,7 @@ func (app *applicationMain) createPostSCRIPT(ipAddress string, position int, aws
 	if app.checkFileNameExist(ipAddress, fmt.Sprintf("./%s", scriptsFolder)) {
 		return nil
 	}
-	filename := fmt.Sprintf("%d-%s-%s.ps1", position, ipAddress, app.BatchTag)
+	filename := fmt.Sprintf("%s-%s.ps1", app.BatchTag, ipAddress)
 
 	// Ensure the directory exists
 	err2 := os.MkdirAll(scriptsFolder, 0755)

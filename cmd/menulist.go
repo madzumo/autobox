@@ -568,23 +568,13 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 		m.spinnerMsg = "Creating Post Launch scripts..."
 		result := "Created Post Launch scripts"
 
-		startCount, err := countNumberofFiles(fmt.Sprintf("./%s", m.app.Digital.Region))
-		if m.app.Provider == "aws" {
-			startCount, err = countNumberofFiles(fmt.Sprintf("./%s", m.app.Aws.Region))
-		}
-		if err != nil {
-			fmt.Printf("Error getting number of Files in boxes\n%s", err)
-			startCount = 0
-		}
-
 		if m.app.Provider == "digital" {
 			ips, err := m.app.Digital.compileIPaddressesDigital()
 			if err != nil {
 				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
 			} else {
 				for _, ip := range ips {
-					startCount++
-					err := m.app.createPostSCRIPT(ip, startCount, "")
+					err := m.app.createPostSCRIPT(ip, "")
 					if err != nil {
 						result = fmt.Sprintf("Error creating post script\n%s", err)
 					}
@@ -597,8 +587,7 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
 			} else {
 				for _, ip := range ips {
-					startCount++
-					err := m.app.createPostSCRIPT(ip, startCount, m.app.Aws.PemKeyFileName)
+					err := m.app.createPostSCRIPT(ip, m.app.Aws.PemKeyFileName)
 					if err != nil {
 						result = fmt.Sprintf("Error creating post script\n%s", err)
 					}
