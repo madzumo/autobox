@@ -146,7 +146,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[6]
+					m.inputPrompt = menuTOP[7]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., dop_v1_a0xx"
 					m.textInput.Focus()
@@ -159,7 +159,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[7]
+					m.inputPrompt = menuTOP[8]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., AKIAYxx"
 					m.textInput.Focus()
@@ -172,7 +172,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[8]
+					m.inputPrompt = menuTOP[9]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., it's a secret.."
 					m.textInput.Focus()
@@ -185,7 +185,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[11]
+					m.inputPrompt = menuTOP[12]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., https://www.whatever.com"
 					m.textInput.Focus()
@@ -198,7 +198,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[9]
+					m.inputPrompt = menuTOP[10]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., us-east-1"
 					m.textInput.Focus()
@@ -211,7 +211,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[10]
+					m.inputPrompt = menuTOP[11]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., 5"
 					m.textInput.Focus()
@@ -224,7 +224,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
-					m.inputPrompt = menuTOP[12]
+					m.inputPrompt = menuTOP[0]
 					m.textInput = textinput.New()
 					m.textInput.Placeholder = "e.g., TAG you're it"
 					m.textInput.Focus()
