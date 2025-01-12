@@ -36,7 +36,7 @@ var (
 	textJobOutcomeFront = "216"
 
 	menuTOP = []string{
-		"TAG Batch Label",
+		"Set Batch TAG",
 		"DEPLOY Boxes",
 		"CREATE PS1 Scripts",
 		"RUN Post URL Action",
@@ -270,7 +270,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.prevMenuState = m.state
 					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
-				case menuTOP[12]:
+				case menuTOP[13]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -303,23 +303,23 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 			inputValue := m.textInput.Value() // User pressed enter, save the input
 
 			switch m.inputPrompt {
-			case menuTOP[6]:
+			case menuTOP[7]:
 				m.app.Digital.ApiToken = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved API: %s", inputValue)
 				m.header = m.app.getAppHeader()
-			case menuTOP[7]:
+			case menuTOP[8]:
 				m.app.Aws.Key = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved AWS Key: %s", inputValue)
 				m.header = m.app.getAppHeader()
-			case menuTOP[8]:
+			case menuTOP[9]:
 				m.app.Aws.Secret = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved AWS Secret: %s", inputValue)
 				m.header = m.app.getAppHeader()
-			case menuTOP[11]:
+			case menuTOP[12]:
 				m.app.URL = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved URL: %s", inputValue)
 				m.header = m.app.getAppHeader()
-			case menuTOP[10]:
+			case menuTOP[11]:
 				boxes, err := strconv.Atoi(inputValue)
 				if err != nil {
 					m.backgroundJobResult = "Data inputed is not a valid Number"
@@ -328,7 +328,7 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.backgroundJobResult = fmt.Sprintf("Number of Boxes = %s", inputValue)
 					m.header = m.app.getAppHeader()
 				}
-			case menuTOP[9]:
+			case menuTOP[10]:
 				if m.app.Provider == "digital" {
 					m.app.Digital.Region = inputValue
 				} else { //AWS
@@ -336,7 +336,7 @@ func (m *MenuList) updateTextInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.backgroundJobResult = fmt.Sprintf("Saved Region: %s", inputValue)
 				m.header = m.app.getAppHeader()
-			case menuTOP[12]:
+			case menuTOP[0]:
 				m.app.BatchTag = inputValue
 				m.backgroundJobResult = fmt.Sprintf("Saved Batch Tag: %s", inputValue)
 				m.header = m.app.getAppHeader()
