@@ -36,6 +36,7 @@ var (
 	textJobOutcomeFront = "216"
 
 	menuTOP = []string{
+		"TAG Batch Label",
 		"DEPLOY Boxes",
 		"CREATE PS1 Scripts",
 		"RUN Post URL Action",
@@ -48,7 +49,6 @@ var (
 		"Region to deploy",
 		"Boxes to deploy",
 		"Set URL Post Launch",
-		"Set Batch TAG",
 		"Save Settings",
 	}
 )
@@ -131,7 +131,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if ok {
 				m.choice = string(i)
 				switch m.choice {
-				case menuTOP[5]:
+				case menuTOP[6]:
 					if m.app.Provider == "digital" {
 						m.app.Provider = "aws"
 						manifestColorFront = awsColorFront
@@ -142,7 +142,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 					m.header = m.app.getAppHeader()
 					return m, nil
-				case menuTOP[6]:
+				case menuTOP[7]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
@@ -155,7 +155,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[7]:
+				case menuTOP[8]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
@@ -168,7 +168,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[8]:
+				case menuTOP[9]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
@@ -181,7 +181,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[11]:
+				case menuTOP[12]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
@@ -194,7 +194,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[9]:
+				case menuTOP[10]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
@@ -207,7 +207,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[10]:
+				case menuTOP[11]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
@@ -220,7 +220,7 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[12]:
+				case menuTOP[0]:
 					m.prevMenuState = m.state
 					m.prevState = m.state
 					m.state = StateTextInput
@@ -233,17 +233,17 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					return m, nil
-				case menuTOP[0]:
-					m.prevState = m.state
-					m.prevMenuState = m.state
-					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundJobCreateBox())
 				case menuTOP[1]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundJobPS1scripts())
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobCreateBox())
 				case menuTOP[2]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobPS1scripts())
+				case menuTOP[3]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -260,17 +260,17 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textPromptColor))
 					// m.textInput.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color(textInputColor))
 					// return m, nil
-				case menuTOP[3]:
-					m.prevState = m.state
-					m.prevMenuState = m.state
-					m.state = StateSpinner
-					return m, tea.Batch(m.spinner.Tick, m.backgroundJobVerifyVNC())
 				case menuTOP[4]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
+					return m, tea.Batch(m.spinner.Tick, m.backgroundJobVerifyVNC())
+				case menuTOP[5]:
+					m.prevState = m.state
+					m.prevMenuState = m.state
+					m.state = StateSpinner
 					return m, tea.Batch(m.spinner.Tick, m.backgroundJobDeleteBox())
-				case menuTOP[13]:
+				case menuTOP[12]:
 					m.prevState = m.state
 					m.prevMenuState = m.state
 					m.state = StateSpinner
@@ -582,7 +582,7 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 			}
 		} else { //AWS
 			pepa, _ := m.app.Aws.ec2ClientCreds()
-			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa)
+			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa, m.app.BatchTag)
 			if err != nil {
 				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
 			} else {
@@ -696,7 +696,7 @@ func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
 			scriptsFolder := fmt.Sprintf("./%s", m.app.Aws.Region)
 			files, _ := os.ReadDir(scriptsFolder)
 			pepa, _ := m.app.Aws.ec2ClientCreds()
-			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa)
+			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa, m.app.BatchTag)
 			if err != nil {
 				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
 			} else {

@@ -343,7 +343,7 @@ func (a *AWS) deletePEMFile(client *ec2.Client) error {
 	return nil
 }
 
-func (a *AWS) compileIPaddressesAws(client *ec2.Client) (ips []string, fullEC2 []EC2InstanceIP, err error) {
+func (a *AWS) compileIPaddressesAws(client *ec2.Client, batchT string) (ips []string, fullEC2 []EC2InstanceIP, err error) {
 	ctx := context.Background()
 
 	// Describe EC2 instances
@@ -353,10 +353,27 @@ func (a *AWS) compileIPaddressesAws(client *ec2.Client) (ips []string, fullEC2 [
 				Name:   aws.String("tag:AUTO-BOX"),
 				Values: []string{"true"},
 			},
+			{
+				Name:   aws.String("tag:BatchTag"),
+				Values: []string{batchT},
+			},
 		},
 	})
 	if err != nil {
 		return nil, nil, err
+	}
+	if batchT == "" {
+		resp, err = client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+			Filters: []types.Filter{
+				{
+					Name:   aws.String("tag:AUTO-BOX"),
+					Values: []string{"true"},
+				},
+			},
+		})
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Iterate over reservations and instances to collect IP addresses
