@@ -38,8 +38,8 @@ var (
 	menuTOP = []string{
 		"Set Batch TAG",
 		"DEPLOY Boxes",
-		"CREATE PS1 Scripts",
-		"RUN Post URL Action",
+		"CREATE Post Launch Scripts",
+		"RUN URL Post Launch",
 		"VERIFY Boxes (TightVNC)",
 		"DELETE Boxes",
 		"Toggle Provider",
@@ -528,7 +528,7 @@ func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
 		var wg sync.WaitGroup
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
 		m.spinnerMsg = "Running Post Launch Scripts"
-		result := "Finished Executing Batch Tag Scripts"
+		result := "Finished Executing Post Launch Scripts"
 		scriptsFolder := fmt.Sprintf("./%s", m.app.Digital.Region)
 		if m.app.Provider == "aws" {
 			scriptsFolder = fmt.Sprintf("./%s", m.app.Aws.Region)
