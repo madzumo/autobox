@@ -64,7 +64,7 @@ func (app *applicationMain) getAppHeader() string {
 	}
 	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(headerColorFront)).Render(headerMenu) +
 		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(manifestColorFront)).Render(manifest) +
-		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(batchTagColor)).Render(batchTagColorize)
+		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(headerColorFront)).Render(batchTagColorize)
 }
 
 func getSettings() (appMain *applicationMain, err error) {
