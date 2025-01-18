@@ -41,6 +41,30 @@ func (a *AWS) ec2ClientCreds() (*ec2.Client, error) {
 	return client, nil
 }
 
+func (a *AWS) getActiveEC2s(client *ec2.Client) (int, error) {
+	ctx := context.Background()
+
+	// Describe instances with the AUTO-BOX tag
+	resp, err := client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: []types.Filter{
+			{
+				Name:   aws.String("tag:AUTO-BOX"),
+				Values: []string{"true"},
+			},
+			{
+				Name:   aws.String("instance-state-code"),
+				Values: []string{"16"},
+			},
+		},
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	return len(resp.Reservations), nil
+}
+
 func (a *AWS) createPEMFile(client *ec2.Client) error {
 	ctx := context.Background()
 	// Check if the key pair already exists
@@ -201,6 +225,9 @@ func (a *AWS) createEC2Instance(securityGroupID string, client *ec2.Client, batc
 					},
 				},
 			},
+		},
+		InstanceMarketOptions: &types.InstanceMarketOptionsRequest{
+			MarketType: types.MarketTypeSpot,
 		},
 	})
 	if err != nil {

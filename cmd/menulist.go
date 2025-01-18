@@ -23,6 +23,7 @@ var (
 	awsColorFront       = "220"
 	headerColorFront    = "46"
 	manifestColorFront  = "39"
+	batchTagColor       = "69"
 	lipTitleStyle       = lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("205"))
 	itemStyle           = lipgloss.NewStyle().PaddingLeft(4)
 	selectedItemStyle   = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
@@ -36,18 +37,18 @@ var (
 	textJobOutcomeFront = "216"
 
 	menuTOP = []string{
-		"Set Batch TAG",
+		"TAG this Batch",
 		"DEPLOY Boxes",
 		"CREATE Post Launch Scripts",
-		"RUN URL Post Launch",
+		"RUN Post Launch URLs",
 		"VERIFY Boxes (TightVNC)",
 		"DELETE Boxes",
 		"Toggle Provider",
 		"Enter API Token",
 		"Enter AWS Key",
 		"Enter AWS Secret",
-		"Region to deploy",
-		"Boxes to deploy",
+		"Set Region to deploy",
+		"Set Number of Boxes to deploy",
 		"Set URL Post Launch",
 		"Save Settings",
 	}
@@ -124,8 +125,11 @@ func (m *MenuList) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// 	return m, nil
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
-		case "q", "ctrl+c":
+		case "q", "ctrl+c", "Q":
 			return m, tea.Quit
+		case "r", "R":
+			m.header = m.app.getAppHeader()
+			return m, nil
 		case "enter":
 			i, ok := m.list.SelectedItem().(item)
 			if ok {

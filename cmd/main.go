@@ -10,7 +10,6 @@ import (
 
 var (
 	headerMenu = `
-
 +========================================================+
 |    _              _               ____     ___   __  __|
 |   / \     _   _  | |_    ___     | __ )   / _ \  \ \/ /|
@@ -45,21 +44,27 @@ func main() {
 
 func (app *applicationMain) getAppHeader() string {
 	var manifest string
+	pepa, _ := app.Aws.ec2ClientCreds()
+	ec2s, _ := app.Aws.getActiveEC2s(pepa)
 	switch app.Provider {
 	case "digital":
-		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nAPI: %.10s...\nBoxes: %d\nURL: %s\nBatch Tag:%s", app.Provider, app.Digital.Region, app.Digital.ApiToken, app.NumberBoxes, app.URL, app.BatchTag)
+		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nAPI: %.10s...\nDeploy Boxes: %d  Running:0\nURL: %s", app.Provider, app.Digital.Region, app.Digital.ApiToken, app.NumberBoxes, app.URL)
 	case "aws":
-		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nKey/Secret: %.8s.../%.8s...\nBoxes: %d\nURL: %s\nBatch Tag:%s", app.Provider, app.Aws.Region, app.Aws.Key, app.Aws.Secret, app.NumberBoxes, app.URL, app.BatchTag)
+		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nKey/Secret: %.8s.../%.8s...\nDeploy Boxes: %d  Running:%d\nURL: %s", app.Provider, app.Aws.Region, app.Aws.Key, app.Aws.Secret, app.NumberBoxes, ec2s, app.URL)
 		// case "linode":
 		// 	manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.LinodeAPI, app.settings.NumberBoxes, app.settings.URL)
 	}
+
+	batchTagColorize := fmt.Sprintf("\nBatch Tag:%s", app.BatchTag)
 
 	if app.Provider == "aws" {
 		manifestColorFront = awsColorFront
 	} else if app.Provider == "digital" {
 		manifestColorFront = digitalColorFront
 	}
-	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(headerColorFront)).Render(headerMenu) + lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(manifestColorFront)).Render(manifest)
+	return lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(headerColorFront)).Render(headerMenu) +
+		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(manifestColorFront)).Render(manifest) +
+		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(batchTagColor)).Render(batchTagColorize)
 }
 
 func getSettings() (appMain *applicationMain, err error) {
