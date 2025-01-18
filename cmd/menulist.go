@@ -37,7 +37,7 @@ var (
 	textJobOutcomeFront = "216"
 
 	menuTOP = []string{
-		"TAG this Batch",
+		"TAG deployment",
 		"DEPLOY Boxes",
 		"CREATE Post Launch Scripts",
 		"RUN Post Launch URLs",

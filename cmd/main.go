@@ -55,7 +55,7 @@ func (app *applicationMain) getAppHeader() string {
 		// 	manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.LinodeAPI, app.settings.NumberBoxes, app.settings.URL)
 	}
 
-	batchTagColorize := fmt.Sprintf("\nBatch Tag:%s", app.BatchTag)
+	batchTagColorize := fmt.Sprintf("\nTag:%s", app.BatchTag)
 
 	if app.Provider == "aws" {
 		manifestColorFront = awsColorFront
