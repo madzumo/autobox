@@ -326,35 +326,35 @@ func (a *AWS) deleteEC2Instances(client *ec2.Client, batchT string) error {
 	return nil
 }
 
-func (a *AWS) deleteSecurityGroups(client *ec2.Client) error {
-	ctx := context.Background()
+// func (a *AWS) deleteSecurityGroups(client *ec2.Client) error {
+// 	ctx := context.Background()
 
-	// Describe security groups with the AUTO-BOX tag
-	resp, err := client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
-		Filters: []types.Filter{
-			{
-				Name:   aws.String("tag:AUTO-BOX"),
-				Values: []string{"true"},
-			},
-		},
-	})
-	if err != nil {
-		return err
-	}
+// 	// Describe security groups with the AUTO-BOX tag
+// 	resp, err := client.DescribeSecurityGroups(ctx, &ec2.DescribeSecurityGroupsInput{
+// 		Filters: []types.Filter{
+// 			{
+// 				Name:   aws.String("tag:AUTO-BOX"),
+// 				Values: []string{"true"},
+// 			},
+// 		},
+// 	})
+// 	if err != nil {
+// 		return err
+// 	}
 
-	for _, sg := range resp.SecurityGroups {
-		_, err := client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
-			GroupId: sg.GroupId,
-		})
-		if err != nil {
-			fmt.Printf("Failed to delete security group %s: %v\n", *sg.GroupId, err)
-		} else {
-			fmt.Printf("Deleted security group: %s\n", *sg.GroupId)
-		}
-	}
+// 	for _, sg := range resp.SecurityGroups {
+// 		_, err := client.DeleteSecurityGroup(ctx, &ec2.DeleteSecurityGroupInput{
+// 			GroupId: sg.GroupId,
+// 		})
+// 		if err != nil {
+// 			fmt.Printf("Failed to delete security group %s: %v\n", *sg.GroupId, err)
+// 		} else {
+// 			fmt.Printf("Deleted security group: %s\n", *sg.GroupId)
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (a *AWS) deletePEMFile(client *ec2.Client) error {
 	ctx := context.Background()

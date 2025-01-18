@@ -224,17 +224,17 @@ func (app *applicationMain) runPS1file(scriptPath, fileName string) error {
 	return nil
 }
 
-func countNumberofFiles(folderPath string) (int, error) {
-	// Check if the folder exists
-	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
-		return 0, nil
-	}
+// func countNumberofFiles(folderPath string) (int, error) {
+// 	// Check if the folder exists
+// 	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+// 		return 0, nil
+// 	}
 
-	//read files in directory
-	files, err := os.ReadDir(folderPath)
-	if err != nil {
-		return 0, nil
-	}
+// 	//read files in directory
+// 	files, err := os.ReadDir(folderPath)
+// 	if err != nil {
+// 		return 0, nil
+// 	}
 
-	return len(files), nil
-}
+// 	return len(files), nil
+// }
