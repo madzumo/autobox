@@ -48,9 +48,9 @@ func (app *applicationMain) getAppHeader() string {
 	ec2s, _ := app.Aws.getActiveEC2s(pepa)
 	switch app.Provider {
 	case "digital":
-		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nAPI: %.10s...\nDeploy Boxes: %d  Running: 0\nURL: %s", app.Provider, app.Digital.Region, app.Digital.ApiToken, app.NumberBoxes, app.URL)
+		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nAPI: %.10s...\nURL: %s\nDeploy Boxes: %d  Running: 0", app.Provider, app.Digital.Region, app.Digital.ApiToken, app.URL, app.NumberBoxes)
 	case "aws":
-		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nKey/Secret: %.8s.../%.8s...\nDeploy Boxes: %d  Running: %d\nURL: %s", app.Provider, app.Aws.Region, app.Aws.Key, app.Aws.Secret, app.NumberBoxes, ec2s, app.URL)
+		manifest = fmt.Sprintf("\nProvider: %s\nRegion: %s\nKey/Secret: %.8s.../%.8s...\nURL: %s\nDeploy Boxes: %d  Running: %d", app.Provider, app.Aws.Region, app.Aws.Key, app.Aws.Secret, app.URL, app.NumberBoxes, ec2s)
 		// case "linode":
 		// 	manifest = fmt.Sprintf("\nProvider: %s\nAPI: %.15s...\nBoxes: %d\nURL: %s", app.settings.Provider, app.settings.LinodeAPI, app.settings.NumberBoxes, app.settings.URL)
 	}
