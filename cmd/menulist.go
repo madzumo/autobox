@@ -502,7 +502,7 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 				// time.Sleep(1 * time.Second)
 			}
 		} else { //aws
-			pepa, err := m.app.Aws.ec2ClientCreds()
+			pepa, err := m.app.Aws.createEc2Client()
 			if err != nil {
 				resultX = fmt.Sprintf("error getting AWS credentials:\n%s", err)
 			} else {
@@ -585,7 +585,7 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 				}
 			}
 		} else { //AWS
-			pepa, _ := m.app.Aws.ec2ClientCreds()
+			pepa, _ := m.app.Aws.createEc2Client()
 			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa, m.app.BatchTag)
 			if err != nil {
 				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
@@ -619,7 +619,7 @@ func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 				resultX = fmt.Sprintf("Error deleting firewall\n%s", err)
 			}
 		} else { //aws
-			pepa, err := m.app.Aws.ec2ClientCreds()
+			pepa, err := m.app.Aws.createEc2Client()
 			if err != nil {
 				resultX = fmt.Sprintf("error getting AWS credentials:\n%s", err)
 			} else {
@@ -699,7 +699,7 @@ func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
 		} else { //aws
 			scriptsFolder := fmt.Sprintf("./%s", m.app.Aws.Region)
 			files, _ := os.ReadDir(scriptsFolder)
-			pepa, _ := m.app.Aws.ec2ClientCreds()
+			pepa, _ := m.app.Aws.createEc2Client()
 			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa, m.app.BatchTag)
 			if err != nil {
 				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)

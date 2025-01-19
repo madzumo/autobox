@@ -44,7 +44,7 @@ func main() {
 
 func (app *applicationMain) getAppHeader() string {
 	var manifest string
-	pepa, _ := app.Aws.ec2ClientCreds()
+	pepa, _ := app.Aws.createEc2Client()
 	ec2s, _ := app.Aws.getActiveEC2s(pepa)
 	switch app.Provider {
 	case "digital":

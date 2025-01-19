@@ -28,7 +28,7 @@ type EC2InstanceIP struct {
 	PrivateIP  string
 }
 
-func (a *AWS) ec2ClientCreds() (*ec2.Client, error) {
+func (a *AWS) createEc2Client() (*ec2.Client, error) {
 	ctx := context.Background()
 	customCreds := aws.NewCredentialsCache(
 		credentials.NewStaticCredentialsProvider(a.Key, a.Secret, ""),
