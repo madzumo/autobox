@@ -699,8 +699,8 @@ func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
 		} else { //aws
 			scriptsFolder := fmt.Sprintf("./%s", m.app.Aws.Region)
 			files, _ := os.ReadDir(scriptsFolder)
-			fmt.Println(m.app.Aws.Region)
-			time.Sleep(100 * time.Second)
+			// fmt.Println(m.app.Aws.Region) //troubleshoot
+			// time.Sleep(100 * time.Second) //troubleshoot
 			pepa, _ := m.app.Aws.createEc2Client()
 			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa, m.app.BatchTag)
 			if err != nil {
