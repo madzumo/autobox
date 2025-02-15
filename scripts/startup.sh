@@ -27,7 +27,7 @@ echo "-------vnc shutdown------"
 echo -e '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &\nbrave-browser --no-sandbox --new-window --start-maximized "$URL"' > ~/.vnc/xstartup
 chmod +x ~/.vnc/xstartup
 sleep 1
-vncserver
+vncserver -geometry 1280x1024 -depth 24
 #sleep 2
 #curl -L https://azuredatastudio-update.azurewebsites.net/latest/linux-deb-x64/stable -o azure.deb
 #azuredatastudio
