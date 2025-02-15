@@ -1,5 +1,4 @@
 #!/bin/bash
-echo "Hello, DigitalOcean!" > /root/test.txt
 sudo apt-get update
 sudo apt-get install xfce4 xfce4-goodies tightvncserver -y
 sudo apt-get install dbus-x11 -y
@@ -29,3 +28,6 @@ echo -e '#!/bin/bash\nxrdb $HOME/.Xresources\nstartxfce4 &\nbrave-browser --no-s
 chmod +x ~/.vnc/xstartup
 sleep 1
 vncserver
+#sleep 2
+#curl -L https://azuredatastudio-update.azurewebsites.net/latest/linux-deb-x64/stable -o azure.deb
+#azuredatastudio
