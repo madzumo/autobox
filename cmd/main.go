@@ -69,7 +69,7 @@ func (app *applicationMain) getAppHeader() string {
 
 func getSettings() (appMain *applicationMain, err error) {
 	app := &applicationMain{
-		Aws:         &AWS{PemKeyFileName: "autobox", AmiID: "ami-036841078a4b68e14", InstanceType: "t3a.small"},
+		Aws:         &AWS{PemKeyFileName: "autobox", AmiID: "ami-0bbdd8c17ed981ef9", InstanceType: "t3a.small"},
 		Digital:     &Digital{InstanceSize: "s-1vcpu-2gb", ImageSlug: "ubuntu-24-10-x64", Tags: []string{"AUTO-BOX"}},
 		NumberBoxes: 1,
 		Provider:    "aws",

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"syscall"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -102,18 +102,13 @@ func (a *AWS) createPEMFile(client *ec2.Client) error {
 		return err
 	}
 
-	scriptsFolder := fmt.Sprintf("./%s", a.Region)
-	// Ensure the directory exists
-	err2 := os.MkdirAll(scriptsFolder, 0755)
-	if err2 != nil {
-		return err2
-	}
+	// Save PEM key in current directory instead of subfolder
+	currentDir, _ := os.Getwd()
+	fmt.Printf("DEBUG createPEMFile: Saving PEM key in current directory: %s\n", currentDir)
 
 	// fileName := fmt.Sprintf("%s.pem", keyName)
-	fileName, err := filepath.Abs(filepath.Join(scriptsFolder, fmt.Sprintf("%s.pem", a.PemKeyFileName)))
-	if err != nil {
-		return err
-	}
+	fileName := filepath.Join(currentDir, fmt.Sprintf("%s.pem", a.PemKeyFileName))
+	fmt.Printf("DEBUG createPEMFile: PEM file path: %s\n", fileName)
 	err = os.WriteFile(fileName, []byte(*resp.KeyMaterial), 0400)
 	if err != nil {
 		return err
@@ -199,10 +194,86 @@ func (a *AWS) createSecurityGroup(sgName, description string, client *ec2.Client
 	return securityGroupID, nil
 }
 
+func (a *AWS) validateAMI(client *ec2.Client) error {
+	ctx := context.Background()
+
+	// Check if the current AMI exists in this region
+	resp, err := client.DescribeImages(ctx, &ec2.DescribeImagesInput{
+		ImageIds: []string{a.AmiID},
+	})
+	if err != nil {
+		fmt.Printf("Error checking AMI %s in region %s: %v\n", a.AmiID, a.Region, err)
+	} else if len(resp.Images) > 0 {
+		fmt.Printf("AMI %s found and valid in region %s\n", a.AmiID, a.Region)
+		return nil // AMI is valid, use it
+	}
+
+	fmt.Printf("AMI %s not found in region %s, searching for alternative Ubuntu AMIs...\n", a.AmiID, a.Region)
+
+	// Try multiple Ubuntu versions in order of preference
+	searchPatterns := []string{
+		"ubuntu/images/hvm-ssd/ubuntu-noble-24.04-amd64-server-*", // Ubuntu 24.04 LTS
+		"ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*", // Ubuntu 22.04 LTS
+		"ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*", // Ubuntu 20.04 LTS
+	}
+
+	for _, pattern := range searchPatterns {
+		fmt.Printf("Searching for pattern: %s\n", pattern)
+
+		resp, err = client.DescribeImages(ctx, &ec2.DescribeImagesInput{
+			Filters: []types.Filter{
+				{
+					Name:   aws.String("name"),
+					Values: []string{pattern},
+				},
+				{
+					Name:   aws.String("owner-id"),
+					Values: []string{"099720109477"}, // Canonical's AWS account ID
+				},
+				{
+					Name:   aws.String("state"),
+					Values: []string{"available"},
+				},
+			},
+		})
+		if err != nil {
+			fmt.Printf("Error searching for pattern %s: %v\n", pattern, err)
+			continue
+		}
+
+		if len(resp.Images) > 0 {
+			// Use the most recent AMI
+			latestAMI := resp.Images[0]
+			for _, img := range resp.Images {
+				if img.CreationDate != nil && latestAMI.CreationDate != nil {
+					if *img.CreationDate > *latestAMI.CreationDate {
+						latestAMI = img
+					}
+				}
+			}
+
+			a.AmiID = *latestAMI.ImageId
+			fmt.Printf("Found and using AMI: %s (%s)\n", a.AmiID, *latestAMI.Name)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("no suitable Ubuntu AMI found in region %s. Please check your region or specify a valid AMI ID for %s", a.Region, a.Region)
+}
+
 func (a *AWS) createEC2Instance(securityGroupID string, client *ec2.Client, batchT string) error {
 	ctx := context.Background()
 
-	resp, err := client.RunInstances(ctx, &ec2.RunInstancesInput{
+	// Debug: Print the parameters being used
+	fmt.Printf("Creating EC2 with parameters:\n")
+	fmt.Printf("  AMI ID: %s\n", a.AmiID)
+	fmt.Printf("  Instance Type: %s\n", a.InstanceType)
+	fmt.Printf("  Key Name: %s\n", a.PemKeyFileName)
+	fmt.Printf("  Security Group ID: %s\n", securityGroupID)
+	fmt.Printf("  Region: %s\n", a.Region)
+
+	// First try with spot instances
+	runInput := &ec2.RunInstancesInput{
 		ImageId:      aws.String(a.AmiID),
 		InstanceType: types.InstanceType(a.InstanceType),
 		KeyName:      aws.String(a.PemKeyFileName),
@@ -229,9 +300,18 @@ func (a *AWS) createEC2Instance(securityGroupID string, client *ec2.Client, batc
 		InstanceMarketOptions: &types.InstanceMarketOptionsRequest{
 			MarketType: types.MarketTypeSpot,
 		},
-	})
+	}
+
+	resp, err := client.RunInstances(ctx, runInput)
 	if err != nil {
-		return err
+		// If spot instance fails, try regular on-demand instance
+		fmt.Printf("Spot instance failed, trying on-demand: %v\n", err)
+
+		runInput.InstanceMarketOptions = nil // Remove spot instance option
+		resp, err = client.RunInstances(ctx, runInput)
+		if err != nil {
+			return fmt.Errorf("failed to create EC2 instance (both spot and on-demand): %w", err)
+		}
 	}
 
 	instanceID := *resp.Instances[0].InstanceId
@@ -429,17 +509,29 @@ func (a *AWS) compileIPaddressesAws(client *ec2.Client, batchT string) (ips []st
 }
 
 func (a *AWS) restrictWindowsFilePermissions(fileName string) error {
-	// Get file attributes
-	pointer, err := syscall.UTF16PtrFromString(fileName)
+	fmt.Printf("DEBUG restrictWindowsFilePermissions: Setting SSH-compatible permissions on: %s\n", fileName)
+
+	// Use icacls command to set proper Windows permissions for SSH private keys
+	// This removes all permissions except for the current user
+	cmd := exec.Command("icacls", fileName, "/inheritance:r", "/grant:r", fmt.Sprintf("%s:(R)", os.Getenv("USERNAME")))
+
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
+		fmt.Printf("DEBUG restrictWindowsFilePermissions: icacls command failed: %v\n", err)
+		fmt.Printf("DEBUG restrictWindowsFilePermissions: icacls output: %s\n", string(output))
+
+		// Fallback: try using attrib command to at least make it read-only
+		fmt.Printf("DEBUG restrictWindowsFilePermissions: Falling back to attrib command\n")
+		cmd2 := exec.Command("attrib", "+R", fileName)
+		if err2 := cmd2.Run(); err2 != nil {
+			fmt.Printf("DEBUG restrictWindowsFilePermissions: attrib command also failed: %v\n", err2)
+			return fmt.Errorf("failed to set file permissions: icacls failed with %v, attrib failed with %v", err, err2)
+		}
+		return nil
 	}
 
-	// Set file as readable only by the owner
-	err = syscall.SetFileAttributes(pointer, syscall.FILE_ATTRIBUTE_READONLY)
-	if err != nil {
-		return err
-	}
+	fmt.Printf("DEBUG restrictWindowsFilePermissions: Successfully set SSH-compatible permissions\n")
+	fmt.Printf("DEBUG restrictWindowsFilePermissions: icacls output: %s\n", string(output))
 
 	return nil
 }

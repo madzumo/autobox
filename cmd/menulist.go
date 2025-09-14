@@ -510,12 +510,22 @@ func (m *MenuList) backgroundJobCreateBox() tea.Cmd {
 				if err != nil {
 					resultX = fmt.Sprintf("error creating PEM:\n%s", err)
 				} else {
-					sgAuto, err2 := m.app.Aws.createSecurityGroup("sgAutoBox", "pepita stuff", pepa)
-					if err2 != nil {
-						resultX = fmt.Sprintf("error creating Security Group:\n%s", err2)
+					// Validate and potentially update AMI for the region
+					err = m.app.Aws.validateAMI(pepa)
+					if err != nil {
+						resultX = fmt.Sprintf("error validating AMI:\n%s", err)
 					} else {
-						for i := 1; i <= m.app.NumberBoxes; i++ {
-							m.app.Aws.createEC2Instance(sgAuto, pepa, m.app.BatchTag)
+						sgAuto, err2 := m.app.Aws.createSecurityGroup("sgAutoBox", "pepita stuff", pepa)
+						if err2 != nil {
+							resultX = fmt.Sprintf("error creating Security Group:\n%s", err2)
+						} else {
+							for i := 1; i <= m.app.NumberBoxes; i++ {
+								err3 := m.app.Aws.createEC2Instance(sgAuto, pepa, m.app.BatchTag)
+								if err3 != nil {
+									resultX = fmt.Sprintf("error creating EC2 instance %d:\n%s", i, err3)
+									break
+								}
+							}
 						}
 					}
 				}
@@ -533,35 +543,66 @@ func (m *MenuList) backgroundJobRunPostURL() tea.Cmd {
 		m.spinner.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("82")) //white = 231
 		m.spinnerMsg = "Running Post Launch Scripts"
 		result := "Finished Executing Post Launch Scripts"
-		scriptsFolder := fmt.Sprintf("./%s", m.app.Digital.Region)
-		if m.app.Provider == "aws" {
-			scriptsFolder = fmt.Sprintf("./%s", m.app.Aws.Region)
+
+		// Use current directory instead of subfolders
+		currentDir, _ := os.Getwd()
+		fmt.Printf("DEBUG backgroundJobRunPostURL: Looking for scripts in: %s\n", currentDir)
+		fmt.Printf("DEBUG backgroundJobRunPostURL: BatchTag filter: '%s'\n", m.app.BatchTag)
+
+		files, err := os.ReadDir(currentDir)
+		if err != nil {
+			result = fmt.Sprintf("Error reading current directory:\n%s", err)
+			return backgroundJobMsg{result: result}
 		}
 
-		files, err := os.ReadDir(scriptsFolder)
-		if err != nil {
-			result = fmt.Sprintf("Error executing scripts:\n%s", err)
-		}
+		fmt.Printf("DEBUG backgroundJobRunPostURL: Found %d files in directory\n", len(files))
 
 		// Loop through each .ps1 file and execute it
-		batchMatch := true
+		scriptsExecuted := 0
 		for _, file := range files {
+			fmt.Printf("DEBUG backgroundJobRunPostURL: Checking file: %s\n", file.Name())
+
+			// Check if file is a .ps1 file
+			if filepath.Ext(file.Name()) != ".ps1" {
+				fmt.Printf("DEBUG backgroundJobRunPostURL: Skipping non-ps1 file: %s\n", file.Name())
+				continue
+			}
+
+			// Check BatchTag matching logic
+			batchMatch := true
 			if m.app.BatchTag != "" {
 				batchMatch = strings.Contains(file.Name(), m.app.BatchTag)
+				fmt.Printf("DEBUG backgroundJobRunPostURL: BatchTag match for '%s': %v (looking for '%s')\n",
+					file.Name(), batchMatch, m.app.BatchTag)
 			}
-			delta := 0
-			if filepath.Ext(file.Name()) == ".ps1" && batchMatch {
-				delta++
-				wg.Add(delta)
-				go func() {
+
+			if batchMatch {
+				scriptsExecuted++
+				fmt.Printf("DEBUG backgroundJobRunPostURL: Executing script: %s\n", file.Name())
+				wg.Add(1)
+				go func(fileName string) {
 					defer wg.Done()
-					scriptPath, _ := filepath.Abs(filepath.Join(scriptsFolder, file.Name()))
-					m.app.runPS1file(scriptPath, file.Name())
-				}()
+					scriptPath, _ := filepath.Abs(filepath.Join(currentDir, fileName))
+					m.app.runPS1file(scriptPath, fileName)
+				}(file.Name())
+			} else {
+				fmt.Printf("DEBUG backgroundJobRunPostURL: Skipping script due to BatchTag mismatch: %s\n", file.Name())
 			}
 		}
 
+		fmt.Printf("DEBUG backgroundJobRunPostURL: Total scripts to execute: %d\n", scriptsExecuted)
 		wg.Wait()
+
+		if scriptsExecuted == 0 {
+			if m.app.BatchTag != "" {
+				result = fmt.Sprintf("No PowerShell scripts found with BatchTag '%s' in current directory", m.app.BatchTag)
+			} else {
+				result = "No PowerShell scripts found in current directory"
+			}
+		} else {
+			result = fmt.Sprintf("Finished executing %d Post Launch Scripts", scriptsExecuted)
+		}
+
 		return backgroundJobMsg{result: result}
 	}
 }
@@ -585,15 +626,43 @@ func (m *MenuList) backgroundJobPS1scripts() tea.Cmd {
 				}
 			}
 		} else { //AWS
-			pepa, _ := m.app.Aws.createEc2Client()
-			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa, m.app.BatchTag)
+			fmt.Printf("DEBUG: Starting AWS post script creation...\n")
+			fmt.Printf("DEBUG: Region: %s, BatchTag: '%s'\n", m.app.Aws.Region, m.app.BatchTag)
+
+			pepa, err := m.app.Aws.createEc2Client()
 			if err != nil {
-				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+				result = fmt.Sprintf("Error creating AWS client:\n%s", err)
 			} else {
-				for _, ip := range ips {
-					err := m.app.createPostSCRIPT(ip, m.app.Aws.PemKeyFileName)
-					if err != nil {
-						result = fmt.Sprintf("Error creating post script\n%s", err)
+				fmt.Printf("DEBUG: AWS client created successfully\n")
+
+				ips, fullEC2, err := m.app.Aws.compileIPaddressesAws(pepa, m.app.BatchTag)
+				if err != nil {
+					result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+				} else {
+					fmt.Printf("DEBUG: Found %d instances, %d IPs\n", len(fullEC2), len(ips))
+					for i, ec2 := range fullEC2 {
+						fmt.Printf("DEBUG: Instance %d: ID=%s, PublicIP=%s, PrivateIP=%s\n",
+							i+1, ec2.InstanceID, ec2.PublicIP, ec2.PrivateIP)
+					}
+
+					if len(ips) == 0 {
+						result = fmt.Sprintf("No running EC2 instances found with BatchTag '%s'. Please deploy boxes first (option 2).", m.app.BatchTag)
+					} else {
+						scriptsCreated := 0
+						for _, ip := range ips {
+							fmt.Printf("DEBUG: Creating post script for IP: %s\n", ip)
+							err := m.app.createPostSCRIPT(ip, m.app.Aws.PemKeyFileName)
+							if err != nil {
+								result = fmt.Sprintf("Error creating post script for IP %s:\n%s", ip, err)
+								break
+							} else {
+								scriptsCreated++
+								fmt.Printf("DEBUG: Successfully created script for IP: %s\n", ip)
+							}
+						}
+						if scriptsCreated > 0 {
+							result = fmt.Sprintf("Created %d post launch scripts successfully", scriptsCreated)
+						}
 					}
 				}
 			}
@@ -640,27 +709,25 @@ func (m *MenuList) backgroundJobDeleteBox() tea.Cmd {
 			}
 		}
 
-		scriptsFolder := fmt.Sprintf("./%s", m.app.Digital.Region)
-		if m.app.Provider == "aws" {
-			scriptsFolder = fmt.Sprintf("./%s", m.app.Aws.Region)
-		}
-		entries, err := os.ReadDir(scriptsFolder)
+		// Clean up scripts from current directory instead of subfolders
+		currentDir, _ := os.Getwd()
+		entries, err := os.ReadDir(currentDir)
 		if err != nil {
-			resultX = fmt.Sprintf("Failed to clear scripts folder\n%s", err)
+			resultX = fmt.Sprintf("Failed to clear scripts from current directory\n%s", err)
 		}
 		for _, entry := range entries {
 			if m.app.BatchTag == "" {
 				if !entry.IsDir() && (filepath.Ext(entry.Name()) == ".ps1" || filepath.Ext(entry.Name()) == ".pem") {
-					err = os.Remove(filepath.Join(scriptsFolder, entry.Name()))
+					err = os.Remove(filepath.Join(currentDir, entry.Name()))
 					if err != nil {
-						resultX = fmt.Sprintf("Failed to clear scripts folder\n%s", err)
+						resultX = fmt.Sprintf("Failed to clear scripts from current directory\n%s", err)
 					}
 				}
 			} else {
 				if !entry.IsDir() && filepath.Ext(entry.Name()) == ".ps1" && strings.Contains(entry.Name(), m.app.BatchTag) {
-					err = os.Remove(filepath.Join(scriptsFolder, entry.Name()))
+					err = os.Remove(filepath.Join(currentDir, entry.Name()))
 					if err != nil {
-						resultX = fmt.Sprintf("Failed to clear scripts folder\n%s", err)
+						resultX = fmt.Sprintf("Failed to clear scripts from current directory\n%s", err)
 					}
 				}
 			}
@@ -678,8 +745,9 @@ func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
 		result := "Verified mofo!"
 
 		if m.app.Provider == "digital" {
-			scriptsFolder := fmt.Sprintf("./%s", m.app.Digital.Region)
-			files, _ := os.ReadDir(scriptsFolder)
+			// Use current directory instead of subfolders
+			currentDir, _ := os.Getwd()
+			files, _ := os.ReadDir(currentDir)
 			ips, err := m.app.Digital.compileIPaddressesDigital()
 			if err != nil {
 				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
@@ -697,22 +765,26 @@ func (m *MenuList) backgroundJobVerifyVNC() tea.Cmd {
 				}
 			}
 		} else { //aws
-			scriptsFolder := fmt.Sprintf("./%s", m.app.Aws.Region)
-			files, _ := os.ReadDir(scriptsFolder)
-			// fmt.Println(m.app.Aws.Region) //troubleshoot
-			// time.Sleep(100 * time.Second) //troubleshoot
-			pepa, _ := m.app.Aws.createEc2Client()
-			ips, _, err := m.app.Aws.compileIPaddressesAws(pepa, m.app.BatchTag)
+			// Use current directory instead of subfolders
+			currentDir, _ := os.Getwd()
+			files, _ := os.ReadDir(currentDir)
+
+			pepa, err := m.app.Aws.createEc2Client()
 			if err != nil {
-				result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+				result = fmt.Sprintf("Error creating AWS client:\n%s", err)
 			} else {
-				for _, ip := range ips {
-					for _, file := range files {
-						if strings.Contains(file.Name(), m.app.BatchTag) &&
-							strings.Contains(file.Name(), ip) {
-							err := m.app.runVNC(ip)
-							if err != nil {
-								result = fmt.Sprintf("Error running TightVNC\n%s", err)
+				ips, _, err := m.app.Aws.compileIPaddressesAws(pepa, m.app.BatchTag)
+				if err != nil {
+					result = fmt.Sprintf("Error compiling IP addresses:\n%s", err)
+				} else {
+					for _, ip := range ips {
+						for _, file := range files {
+							if strings.Contains(file.Name(), m.app.BatchTag) &&
+								strings.Contains(file.Name(), ip) {
+								err := m.app.runVNC(ip)
+								if err != nil {
+									result = fmt.Sprintf("Error running TightVNC\n%s", err)
+								}
 							}
 						}
 					}
